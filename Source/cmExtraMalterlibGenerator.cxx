@@ -517,19 +517,20 @@ void cmExtraMalterlibGenerator::AppendTarget(
     GetTargetDirectDepends(target);
   
   for (auto &dependency : targetDependencies) {
+    auto dependencyLocalGenerator = dependency->GetLocalGenerator();
     if (dependency->GetType() == cmStateEnums::INTERFACE_LIBRARY) {
       continue;
     }
     
     if (dependency->GetType() == cmStateEnums::OBJECT_LIBRARY) {
       std::vector<cmSourceFile*> sourceFiles;
-      GetTargetFiles(sourceFiles, lg, &*dependency, makefile);
+      GetTargetFiles(sourceFiles, dependencyLocalGenerator, &*dependency, dependencyLocalGenerator->GetMakefile());
       AddFilesToRegistry(outputTarget, 
                          sourceFiles, 
                          configName, 
-                         lg, 
+                         dependencyLocalGenerator, 
                          &*dependency);
-      AddTargetCompileInfo(compileTypeInfo, &*dependency, lg, configName);
+      AddTargetCompileInfo(compileTypeInfo, &*dependency, dependencyLocalGenerator, configName);
       continue;
     }
     auto &outputDependency = 
