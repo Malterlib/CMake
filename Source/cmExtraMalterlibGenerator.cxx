@@ -447,7 +447,6 @@ void cmExtraMalterlibGenerator::AddFilesToRegistry(
     {
       auto &outFile = AddFileInGroup(registry, fullPath);
       outFile.addChild("Compile.AllowNonExisting", "true");
-      outFile.addChild("Compile.Disabled", "true");
       if (!malterlibType.empty())
         outFile.addChild("Compile.Type", malterlibType);
     }
@@ -456,6 +455,8 @@ void cmExtraMalterlibGenerator::AddFilesToRegistry(
       auto &outFile = AddFileInGroup(registry, fullPath);
       if (!malterlibType.empty())
         outFile.addChild("Compile.Type", malterlibType);
+	  else
+        outFile.addChild("Compile.Type", "None");
     
       std::set<std::string> defines;
       lg->AppendDefines(defines, file->GetProperty("COMPILE_DEFINITIONS"));
