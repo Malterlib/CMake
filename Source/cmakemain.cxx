@@ -7,6 +7,10 @@
 #include "cmDynamicLoader.h"
 #endif
 
+#ifdef DPlatformFamily_Windows
+#include <Mib/Core/Core>
+#endif
+
 #include "cmAlgorithms.h"
 #include "cmDocumentationEntry.h"
 #include "cmGlobalGenerator.h"
@@ -188,6 +192,17 @@ int main(int ac, char const* const* av)
 #endif
   return ret;
 }
+
+#ifdef DPlatformFamily_Windows
+int __cdecl wmain(int argc, wchar_t *argv[], wchar_t *envp[])
+{
+  TCVector<CStr> Argv;
+  TCVector<ch8 const *>ArgvPtrs;
+  for (mint i = 0; i < argc; ++i)
+    ArgvPtrs.f_Insert(Argv.f_Insert(CWStr(argv[i])).f_GetStr());
+  main(argc, ArgvPtrs.f_GetArray());
+}
+#endif
 
 int do_cmake(int ac, char const* const* av)
 {
