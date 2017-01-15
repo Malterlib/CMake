@@ -377,7 +377,8 @@ std::string cmExtraSublimeTextGenerator::ComputeFlagsForObject(
   // Add source file specific flags.
   if (const char* cflags = source->GetProperty("COMPILE_FLAGS")) {
     cmGeneratorExpression ge;
-    const char* processed = ge.Parse(cflags)->Evaluate(lg, config);
+	CM_AUTO_PTR<cmCompiledGeneratorExpression> expression = ge.Parse(cflags);
+    const char* processed = expression->Evaluate(lg, config);
     lg->AppendFlags(flags, processed);
   }
 
