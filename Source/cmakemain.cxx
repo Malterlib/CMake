@@ -1,6 +1,10 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
    file Copyright.txt or https://cmake.org/licensing for details.  */
 
+#ifdef DPlatformFamily_Windows
+#include <Mib/Core/Core>
+#endif
+
 #include "cmake.h"
 #include "cmAlgorithms.h"
 #include "cmDocumentationEntry.h"
@@ -187,6 +191,17 @@ int main(int ac, char const* const* av)
   uv_loop_close(uv_default_loop());
   return ret;
 }
+
+#ifdef DPlatformFamily_Windows
+int __cdecl wmain(int argc, wchar_t *argv[], wchar_t *envp[])
+{
+  TCVector<CStr> Argv;
+  TCVector<ch8 const *>ArgvPtrs;
+  for (mint i = 0; i < argc; ++i)
+    ArgvPtrs.f_Insert(Argv.f_Insert(CWStr(argv[i])).f_GetStr());
+  main(argc, ArgvPtrs.f_GetArray());
+}
+#endif
 
 int do_cmake(int ac, char const* const* av)
 {

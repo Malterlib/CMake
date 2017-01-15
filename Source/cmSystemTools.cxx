@@ -2234,7 +2234,7 @@ void cmSystemTools::FindCMakeResources(const char* argv0)
     if (SourceWriteTime != WriteTime) {
       CClock Clock{true};
       CLockFile LockFile{CmakeRoot + "/Update.lock"};
-      switch (LockFile.f_Lock(10.0))
+      switch (LockFile.f_Lock(100.0))
       {
       case CLockFile::ELockResult_Locked:
           break;
