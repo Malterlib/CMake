@@ -468,7 +468,8 @@ void cmExtraMalterlibGenerator::AddFilesToRegistry(
 
       if (const char* cflags = file->GetProperty("COMPILE_FLAGS")) {
         cmGeneratorExpression ge;
-        const char* processed = ge.Parse(cflags)->Evaluate(lg, configName);
+		CM_AUTO_PTR<cmCompiledGeneratorExpression> expression = ge.Parse(cflags);
+        const char* processed = expression->Evaluate(lg, configName);
         std::string cStd;
         ParseCompileFlags(defines, cStd, processed);
       }
