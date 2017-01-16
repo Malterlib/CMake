@@ -199,7 +199,7 @@ int __cdecl wmain(int argc, wchar_t *argv[], wchar_t *envp[])
   TCVector<ch8 const *>ArgvPtrs;
   for (mint i = 0; i < argc; ++i)
     ArgvPtrs.f_Insert(Argv.f_Insert(CWStr(argv[i])).f_GetStr());
-  main(argc, ArgvPtrs.f_GetArray());
+  return main(argc, ArgvPtrs.f_GetArray());
 }
 #endif
 

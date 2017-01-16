@@ -2257,7 +2257,7 @@ void cmSystemTools::FindCMakeResources(const char* argv0)
     
     cmSystemToolsCMakeRoot = CmakeRoot.f_GetStr();
   } catch (NException::CException const &_Error) {
-    cmSystemToolsCMakeRoot = ("Failed to find extract ExeFS: " + 
+    cmSystemToolsCMakeRoot = ("Failed to extract ExeFS: " + 
       _Error.f_GetErrorStr()).f_GetStr();
     return;
   }
