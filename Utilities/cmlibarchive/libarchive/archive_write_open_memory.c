@@ -41,7 +41,7 @@ struct write_memory_data {
 
 static int	memory_write_close(struct archive *, void *);
 static int	memory_write_open(struct archive *, void *);
-static ssize_t	memory_write(struct archive *, void *, const void *buff, size_t);
+static la_ssize_t	memory_write(struct archive *, void *, const void *buff, size_t);
 
 /*
  * Client provides a pointer to a block of memory to receive
@@ -85,7 +85,7 @@ memory_write_open(struct archive *a, void *client_data)
  * In particular, this means the client can follow exactly
  * how much has been written into their buffer at any time.
  */
-static ssize_t
+static la_ssize_t
 memory_write(struct archive *a, void *client_data, const void *buff, size_t length)
 {
 	struct write_memory_data *mine;
