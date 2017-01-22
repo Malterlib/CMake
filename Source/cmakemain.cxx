@@ -94,6 +94,7 @@ static const char* cmDocumentationOptions[][2] = {
 
 #endif
 
+#ifndef CMAKE_DISABLE_MAIN
 static int do_command(int ac, char const* const* av)
 {
   std::vector<std::string> args;
@@ -102,9 +103,12 @@ static int do_command(int ac, char const* const* av)
   args.insert(args.end(), av + 2, av + ac);
   return cmcmd::ExecuteCMakeCommand(args);
 }
+#endif
 
 int do_cmake(int ac, char const* const* av);
+#ifndef CMAKE_DISABLE_MAIN
 static int do_build(int ac, char const* const* av);
+#endif
 
 static cmMakefile* cmakemainGetMakefile(void* clientdata)
 {
@@ -159,6 +163,8 @@ static void cmakemainProgressCallback(const char* m, float prog,
   std::cout.flush();
 }
 
+#ifndef CMAKE_DISABLE_MAIN
+
 int main(int ac, char const* const* av)
 {
 #if defined(_WIN32) && defined(CMAKE_BUILD_WITH_CMAKE)
@@ -202,6 +208,8 @@ int __cdecl wmain(int argc, wchar_t *argv[], wchar_t *envp[])
     ArgvPtrs.f_Insert(Argv.f_Insert(CWStr(argv[i])).f_GetStr());
   return main(argc, ArgvPtrs.f_GetArray());
 }
+#endif
+
 #endif
 
 int do_cmake(int ac, char const* const* av)
@@ -348,6 +356,7 @@ int do_cmake(int ac, char const* const* av)
   return 0;
 }
 
+#ifndef CMAKE_DISABLE_MAIN
 static int do_build(int ac, char const* const* av)
 {
 #ifndef CMAKE_BUILD_WITH_CMAKE
@@ -429,3 +438,4 @@ static int do_build(int ac, char const* const* av)
   return cm.Build(dir, target, config, nativeOptions, clean);
 #endif
 }
+#endif
