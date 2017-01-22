@@ -163,6 +163,10 @@ static void cmakemainProgressCallback(const char* m, float prog,
   std::cout.flush();
 }
 
+void prepare_cmake(char const *exe_path) {
+	cmSystemTools::FindCMakeResources(exe_path);
+}
+
 #ifndef CMAKE_DISABLE_MAIN
 
 int main(int ac, char const* const* av)
@@ -180,7 +184,7 @@ int main(int ac, char const* const* av)
   av = args.argv();
 
   cmSystemTools::EnableMSVCDebugHook();
-  cmSystemTools::FindCMakeResources(av[0]);
+  prepare_cmake(av[0]);
   if (ac > 1) {
     if (strcmp(av[1], "--build") == 0) {
       return do_build(ac, av);
