@@ -2230,30 +2230,38 @@ void cmSystemTools::FindCMakeResources(const char* argv0)
     auto SourceWriteTime = MalterlibFS.f_GetWriteTime("");
     CTimeConvert::fs_RoundTimeToSecondDown(SourceWriteTime);
     auto WriteTime = DiskFS.f_GetWriteTime(CmakeRoot);
+    CTimeConvert::fs_RoundTimeToSecondDown(WriteTime);
     
-    if (SourceWriteTime != WriteTime) {
-      CClock Clock{true};
-      CLockFile LockFile{CmakeRoot + "/Update.lock"};
-      switch (LockFile.f_Lock(100.0))
-      {
-      case CLockFile::ELockResult_Locked:
+    do {
+      if (SourceWriteTime != WriteTime) {
+        CClock Clock{true};
+        CLockFile LockFile{CmakeRoot + "/Update.lock"};
+        switch (LockFile.f_Lock(100.0))
+        {
+        case CLockFile::ELockResult_Locked:
+            break;
+        case CLockFile::ELockResult_DoesNotExist: 
+          DMibError("Lock file does not exists");
+        case CLockFile::ELockResult_NoAccess: 
+          DMibError("No access to lock file");
+        case CLockFile::ELockResult_TimedOut: 
+          DMibError("Timed out locking update lock");
+        default:
+          DMibError("Unknown error locking lock file");
+        }
+        
+        WriteTime = DiskFS.f_GetWriteTime(CmakeRoot);
+        CTimeConvert::fs_RoundTimeToSecondDown(WriteTime);
+        if (SourceWriteTime == WriteTime)
           break;
-      case CLockFile::ELockResult_DoesNotExist: 
-        DMibError("Lock file does not exists");
-      case CLockFile::ELockResult_NoAccess: 
-        DMibError("No access to lock file");
-      case CLockFile::ELockResult_TimedOut: 
-        DMibError("Timed out locking update lock");
-      default:
-        DMibError("Unknown error locking lock file");
+        
+        MalterlibFS.f_CopyFilesWithAttribs("*", DiskFS, CmakeRoot);
+        DiskFS.f_SetWriteTime(CmakeRoot, SourceWriteTime);
+        cmSystemTools::Message(fg_Format(
+          "-- Update of CMakeRoot at '{}' from ExeFS took {fe1} s", 
+          CmakeRoot, Clock.f_GetTime()));
       }
-      
-      MalterlibFS.f_CopyFilesWithAttribs("*", DiskFS, CmakeRoot);
-      DiskFS.f_SetWriteTime(CmakeRoot, SourceWriteTime);
-      cmSystemTools::Message(fg_Format(
-        "-- Update of CMakeRoot at '{}' from ExeFS took {fe1} s", 
-        CmakeRoot, Clock.f_GetTime()));
-    }
+    } while (false);
     
     cmSystemToolsCMakeRoot = CmakeRoot.f_GetStr();
   } catch (NException::CException const &_Error) {
