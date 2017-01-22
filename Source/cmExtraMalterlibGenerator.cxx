@@ -248,6 +248,8 @@ void cmExtraMalterlibGenerator::CreateNewProjectFile(
   cmMalterlibRegistry registry;
   std::string projectName = lgs[0]->GetProjectName();
   
+  registry.addChild("Property.CMakeOutputPath_" + projectName, lgs[0]->GetBinaryDirectory());
+  
   const cmMakefile* mf = lgs[0]->GetMakefile();
   AppendAllTargets(lgs, mf, registry);
   
