@@ -92,7 +92,21 @@ namespace
           bNeedEscape = true;
           break;
         }
-        else if (Current <= ' ') {
+        else if (Current == '.' || Current == '%' || Current == '&' || Current == '|' || Current == '!' || Current == '_' || Current == '+' || Current == '-') {
+        }
+        else if (Current < '0') {
+          bNeedEscape = true;
+          break;
+        }
+        else if (Current > '9' && Current < 'A') {
+          bNeedEscape = true;
+          break;
+        }
+        else if (Current > 'Z' && Current < 'a') {
+          bNeedEscape = true;
+          break;
+        }
+        else if (Current > 'z') {
           bNeedEscape = true;
           break;
         }

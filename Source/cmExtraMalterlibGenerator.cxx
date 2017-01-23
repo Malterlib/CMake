@@ -237,6 +237,10 @@ void cmExtraMalterlibGenerator::CreateProjectFile(
   }
 }
 
+static std::string makeAbsoluteWrapper(std::string const &fileName) {
+  return "@('" + fileName + "'->MakeAbsolute())";
+}
+
 void cmExtraMalterlibGenerator::CreateNewProjectFile(
   const std::vector<cmLocalGenerator*>& lgs, const std::string& filename)
 {
@@ -248,7 +252,8 @@ void cmExtraMalterlibGenerator::CreateNewProjectFile(
   cmMalterlibRegistry registry;
   std::string projectName = lgs[0]->GetProjectName();
   
-  registry.addChild("Property.CMakeOutputPath_" + projectName, lgs[0]->GetBinaryDirectory());
+  registry.addChild("Property.CMakeOutputPath_" + projectName, 
+                    makeAbsoluteWrapper(lgs[0]->GetBinaryDirectory()));
   
   const cmMakefile* mf = lgs[0]->GetMakefile();
   AppendAllTargets(lgs, mf, registry);
@@ -388,16 +393,17 @@ void cmExtraMalterlibGenerator::AddFilesToRegistry(
       if (!malterlibType.empty())
         OutCompile.addChild("Type", malterlibType);
       OutCompile.addChild("Custom_WorkingDirectory", 
-                          customCommandGenerator.GetWorkingDirectory());
+                          makeAbsoluteWrapper(customCommandGenerator.GetWorkingDirectory()));
 
       {
         std::string outputs;
         for (auto &output : customCommandGenerator.GetOutputs()) {
+
           if (outputs.empty()) {
-            outputs = output;
+            outputs = makeAbsoluteWrapper(output);
           } else {
             outputs += ";";
-            outputs += output;
+            outputs += makeAbsoluteWrapper(output);
           }
         }
         OutCompile.addChild("Custom_Outputs", outputs);
@@ -414,10 +420,10 @@ void cmExtraMalterlibGenerator::AddFilesToRegistry(
             if (index == 0)
               firstInput = realDependency;
             if (inputs.empty()) {
-              inputs = realDependency;
+              inputs = makeAbsoluteWrapper(realDependency);
             } else {
               inputs += ";";
-              inputs += realDependency;
+              inputs += makeAbsoluteWrapper(realDependency);
             }
             ++index;
           }
@@ -430,6 +436,10 @@ void cmExtraMalterlibGenerator::AddFilesToRegistry(
       }
       {
         int index = 0;
+        
+        auto baseDir = cmSystemTools::GetEnv("CMAKE_MALTERLIB_BASEDIR");
+        auto binaryDir = lg->GetBinaryDirectory();
+        
         for (auto &commandLine : 
              customCommandGenerator.GetCC().GetCommandLines()) {
           if (index > 0) {
@@ -437,9 +447,17 @@ void cmExtraMalterlibGenerator::AddFilesToRegistry(
               "Mulitple commands for custom commands not supported");
             break;
           }
+          
+          auto newCommandLine = commandLine;
+          for (auto &line : newCommandLine) {
+            if (baseDir && cmSystemTools::StringStartsWith(line, baseDir))
+              line = makeAbsoluteWrapper(line);
+            else if (cmSystemTools::StringStartsWith(line, binaryDir))
+              line = makeAbsoluteWrapper(line);
+          }
 
           OutCompile.addChild("Custom_CommandLine",
-                              cmSystemTools::PrintSingleCommand(commandLine));
+                              cmSystemTools::PrintSingleCommand(newCommandLine));
           ++index;
         }
       }
@@ -550,7 +568,7 @@ void cmExtraMalterlibGenerator::AppendTarget(
     auto &info = infoMap.second;
     {
       for (auto &path : info.Includes)
-        path = cmSystemTools::CollapseFullPath(path);
+        path = makeAbsoluteWrapper(cmSystemTools::CollapseFullPath(path));
       auto end = cmRemoveDuplicates(info.Includes);
       info.Includes.erase(end, info.Includes.end());
     }
