@@ -71,6 +71,7 @@ private:
   );
   
   std::vector<cmsys::String> HidePrefixes;
+  std::map<cmsys::String, cmsys::String> ReplacePrefixes;
 };
 
 #endif
