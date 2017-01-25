@@ -190,6 +190,20 @@ cmExtraMalterlibGenerator::cmExtraMalterlibGenerator()
     this->HidePrefixes
       = cmSystemTools::SplitString(hidePrefixesString, ';');
   }
+  char const *replacePrefixesString = 
+    cmSystemTools::GetEnv("CMAKE_MALTERLIB_REPLACEPREFIXES");
+  
+  if (replacePrefixesString) {
+    auto replaceSplit = cmSystemTools::SplitString(replacePrefixesString, ';');
+    for (auto &replace : replaceSplit) {
+      if (replace.empty())
+        continue;
+      auto split = cmSystemTools::SplitString(replace, '=');
+      if (split.size() != 2)
+        continue;
+      ReplacePrefixes[split[0]] = split[1];
+    }
+  }
 }
 
 void cmExtraMalterlibGenerator::Generate()
@@ -338,10 +352,17 @@ cmMalterlibRegistry& cmExtraMalterlibGenerator::AddFileInGroup(
   std::string const &fileName
 ) {
   std::string strippedFileName = fileName;
+  for (auto &prefix : ReplacePrefixes){
+    if (cmSystemTools::StringStartsWith(strippedFileName.c_str(), prefix.first.c_str())) {
+      strippedFileName = prefix.second + strippedFileName.substr(prefix.first.size());
+      break;
+    }
+  }
+  
   bool bFirstPrefix = true;
   bool bProtectGroups = false;
   for (auto &prefix : HidePrefixes){
-    if (cmSystemTools::StringStartsWith(fileName.c_str(), prefix.c_str())) {
+    if (cmSystemTools::StringStartsWith(strippedFileName.c_str(), prefix.c_str())) {
       if (bFirstPrefix)
         bProtectGroups = true;
       strippedFileName = strippedFileName.substr(prefix.size()+1);
