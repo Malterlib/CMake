@@ -10,6 +10,12 @@
 #include "cmState.h"
 #include "cmSystemTools.h"
 
+#ifdef _MSC_VER
+#define CM_CDECL __cdecl
+#else
+#define CM_CDECL
+#endif
+
 class cmExecutionStatus;
 
 #include <signal.h>
@@ -22,7 +28,7 @@ class cmExecutionStatus;
 #include <malloc.h> /* for malloc/free on QNX */
 #endif
 
-extern "C" void TrapsForSignalsCFunction(int sig);
+extern "C" void CM_CDECL TrapsForSignalsCFunction(int sig);
 
 // a class for loadabple commands
 class cmLoadedCommand : public cmCommand
@@ -103,7 +109,7 @@ public:
   cmLoadedCommandInfo info;
 };
 
-extern "C" void TrapsForSignalsCFunction(int sig)
+extern "C" void CM_CDECL TrapsForSignalsCFunction(int sig)
 {
   cmLoadedCommand::TrapsForSignals(sig);
 }

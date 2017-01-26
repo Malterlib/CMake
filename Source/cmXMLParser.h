@@ -7,10 +7,16 @@
 
 #include <string>
 
+#ifdef _MSC_VER
+#define CM_CDECL __cdecl
+#else
+#define CM_CDECL
+#endif
+
 extern "C" {
-void cmXMLParserStartElement(void*, const char*, const char**);
-void cmXMLParserEndElement(void*, const char*);
-void cmXMLParserCharacterDataHandler(void*, const char*, int);
+void CM_CDECL cmXMLParserStartElement(void*, const char*, const char**);
+void CM_CDECL cmXMLParserEndElement(void*, const char*);
+void CM_CDECL cmXMLParserCharacterDataHandler(void*, const char*, int);
 }
 
 /** \class cmXMLParser
@@ -103,9 +109,9 @@ protected:
   static const char* FindAttribute(const char** atts, const char* attribute);
 
   //! Callbacks for the expat
-  friend void cmXMLParserStartElement(void*, const char*, const char**);
-  friend void cmXMLParserEndElement(void*, const char*);
-  friend void cmXMLParserCharacterDataHandler(void*, const char*, int);
+  friend void CM_CDECL cmXMLParserStartElement(void*, const char*, const char**);
+  friend void CM_CDECL cmXMLParserEndElement(void*, const char*);
+  friend void CM_CDECL cmXMLParserCharacterDataHandler(void*, const char*, int);
 };
 
 #endif
