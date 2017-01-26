@@ -434,7 +434,7 @@ static int do_build(int ac, char const* const* av)
       CMAKE_BUILD_OPTIONS
       ;
     /* clang-format on */
-_bS  }
+  }
 
   cmake cm(cmake::RoleInternal);
   cmSystemTools::SetMessageCallback(cmakemainMessageCallback, &cm);
