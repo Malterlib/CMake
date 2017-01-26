@@ -17,6 +17,12 @@
 #include <stdlib.h>
 #include "expat_external.h"
 
+#ifdef _MSC_VER
+#define Expat_CDECL __cdecl
+#else
+#define Expat_CDECL
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -195,9 +201,9 @@ XML_SetXmlDeclHandler(XML_Parser parser,
 
 
 typedef struct {
-  void *(*malloc_fcn)(size_t size);
-  void *(*realloc_fcn)(void *ptr, size_t size);
-  void (*free_fcn)(void *ptr);
+  void *(Expat_CDECL *malloc_fcn)(size_t size);
+  void *(Expat_CDECL *realloc_fcn)(void *ptr, size_t size);
+  void (Expat_CDECL *free_fcn)(void *ptr);
 } XML_Memory_Handling_Suite;
 
 /* Constructs a new parser; encoding is the encoding specified by the

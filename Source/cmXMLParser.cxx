@@ -159,7 +159,7 @@ const char* cmXMLParser::FindAttribute(const char** atts,
   return nullptr;
 }
 
-void cmXMLParserStartElement(void* parser, const char* name, const char** atts)
+void CM_CDECL cmXMLParserStartElement(void* parser, const char* name, const char** atts)
 {
   // Begin element handler that is registered with the XML_Parser.
   // This just casts the user data to a cmXMLParser and calls
@@ -167,14 +167,14 @@ void cmXMLParserStartElement(void* parser, const char* name, const char** atts)
   static_cast<cmXMLParser*>(parser)->StartElement(name, atts);
 }
 
-void cmXMLParserEndElement(void* parser, const char* name)
+void CM_CDECL cmXMLParserEndElement(void* parser, const char* name)
 {
   // End element handler that is registered with the XML_Parser.  This
   // just casts the user data to a cmXMLParser and calls EndElement.
   static_cast<cmXMLParser*>(parser)->EndElement(name);
 }
 
-void cmXMLParserCharacterDataHandler(void* parser, const char* data,
+void CM_CDECL cmXMLParserCharacterDataHandler(void* parser, const char* data,
                                      int length)
 {
   // Character data handler that is registered with the XML_Parser.

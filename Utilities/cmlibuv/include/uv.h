@@ -49,6 +49,12 @@ extern "C" {
 # define UV_EXTERN /* nothing */
 #endif
 
+#ifdef _MSC_VER
+#	define  UV_CDECL __cdecl
+#else
+#	define  UV_CDECL
+#endif
+
 #include "uv-errno.h"
 #include "uv-version.h"
 #include <stddef.h>
@@ -252,10 +258,10 @@ typedef enum {
 UV_EXTERN unsigned int uv_version(void);
 UV_EXTERN const char* uv_version_string(void);
 
-typedef void* (*uv_malloc_func)(size_t size);
-typedef void* (*uv_realloc_func)(void* ptr, size_t size);
-typedef void* (*uv_calloc_func)(size_t count, size_t size);
-typedef void (*uv_free_func)(void* ptr);
+typedef void* (UV_CDECL *uv_malloc_func)(size_t size);
+typedef void* (UV_CDECL *uv_realloc_func)(void* ptr, size_t size);
+typedef void* (UV_CDECL *uv_calloc_func)(size_t count, size_t size);
+typedef void (UV_CDECL *uv_free_func)(void* ptr);
 
 UV_EXTERN int uv_replace_allocator(uv_malloc_func malloc_func,
                                    uv_realloc_func realloc_func,

@@ -70,7 +70,7 @@ static	pack_t	pack_12_20;
 static	pack_t	pack_14_18;
 static	pack_t	pack_8_24;
 static	pack_t	pack_bsdos;
-static	int	compare_format(const void *, const void *);
+static	int	ARCHIVE_CDECL compare_format(const void *, const void *);
 
 static const char iMajorError[] = "invalid major number";
 static const char iMinorError[] = "invalid minor number";
@@ -302,7 +302,7 @@ static const struct format {
 	{"ultrix",  pack_8_8},
 };
 
-static int
+static int ARCHIVE_CDECL
 compare_format(const void *key, const void *element)
 {
 	const char		*name;

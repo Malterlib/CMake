@@ -657,7 +657,7 @@ int env_strncmp(const wchar_t* a, int na, const wchar_t* b) {
 }
 
 
-static int qsort_wcscmp(const void *a, const void *b) {
+static int UV_CDECL qsort_wcscmp(const void *a, const void *b) {
   wchar_t* astr = *(wchar_t* const*)a;
   wchar_t* bstr = *(wchar_t* const*)b;
   return env_strncmp(astr, -1, bstr);

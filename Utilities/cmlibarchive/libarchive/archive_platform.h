@@ -71,6 +71,12 @@
 #include "archive_windows.h"
 #endif
 
+#ifdef _MSC_VER
+#define ARCHIVE_CDECL __cdecl
+#else
+#define ARCHIVE_CDECL
+#endif
+
 /*
  * The config files define a lot of feature macros.  The following
  * uses those macros to select/define replacements and include key

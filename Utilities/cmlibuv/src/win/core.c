@@ -46,7 +46,7 @@ static uv_once_t uv_init_guard_ = UV_ONCE_INIT;
 
 UV_THREAD_LOCAL int uv__crt_assert_enabled = TRUE;
 
-static int uv__crt_dbg_report_handler(int report_type, char *message, int *ret_val) {
+static int UV_CDECL uv__crt_dbg_report_handler(int report_type, char *message, int *ret_val) {
   if (uv__crt_assert_enabled || report_type != _CRT_ASSERT)
     return FALSE;
 
@@ -70,7 +70,7 @@ UV_THREAD_LOCAL int uv__crt_assert_enabled = FALSE;
 
 
 #if !defined(__MINGW32__) || __MSVCRT_VERSION__ >= 0x800
-static void uv__crt_invalid_parameter_handler(const wchar_t* expression,
+static void UV_CDECL uv__crt_invalid_parameter_handler(const wchar_t* expression,
     const wchar_t* function, const wchar_t * file, unsigned int line,
     uintptr_t reserved) {
   /* No-op. */

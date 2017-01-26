@@ -1053,7 +1053,7 @@ fail:
 }
 
 /* sort this so that the longest path gets before the shorter path */
-static int cookie_sort(const void *p1, const void *p2)
+static int CURL_CDECL cookie_sort(const void *p1, const void *p2)
 {
   struct Cookie *c1 = *(struct Cookie **)p1;
   struct Cookie *c2 = *(struct Cookie **)p2;

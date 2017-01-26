@@ -97,6 +97,9 @@
 
 #if defined(_MSC_VER)
 # pragma warning(push,1)
+# define CURL_CDECL __cdecl
+#else
+# define CURL_CDECL
 #endif
 
 /* ================================================================ */
