@@ -7,6 +7,7 @@
 #include "cmDynamicLoader.h"
 #endif
 
+
 #ifdef DPlatformFamily_Windows
 #include <Mib/Core/Core>
 #endif
@@ -165,6 +166,7 @@ static void cmakemainProgressCallback(const char* m, float prog,
 
 void prepare_cmake(char const *exe_path) {
 	cmSystemTools::FindCMakeResources(exe_path);
+	cmSystemTools::SetRunCommandHideConsole(true);
 }
 
 #ifndef CMAKE_DISABLE_MAIN
@@ -433,8 +435,7 @@ static int do_build(int ac, char const* const* av)
       CMAKE_BUILD_OPTIONS
       ;
     /* clang-format on */
-    return 1;
-  }
+_bS  }
 
   cmake cm;
   cmSystemTools::SetMessageCallback(cmakemainMessageCallback, (void*)&cm);
