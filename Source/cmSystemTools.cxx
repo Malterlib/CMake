@@ -2210,6 +2210,8 @@ void cmSystemTools::FindCMakeResources(const char* argv0)
     return;
   }
 
+  cmSystemToolsCMakeCommand = CFile::fs_GetProgramPath();
+
   try {
     CUniversallyUniqueIdentifier UUIDNamespace(
       "{EF53758B-02E4-4DE4-88CC-43513C7F6E2E}");
