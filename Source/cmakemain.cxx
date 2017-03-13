@@ -95,8 +95,7 @@ static const char* cmDocumentationOptions[][2] = {
 
 #endif
 
-#ifndef CMAKE_DISABLE_MAIN
-static int do_command(int ac, char const* const* av)
+int do_command(int ac, char const* const* av)
 {
   std::vector<std::string> args;
   args.reserve(ac - 1);
@@ -104,12 +103,9 @@ static int do_command(int ac, char const* const* av)
   args.insert(args.end(), av + 2, av + ac);
   return cmcmd::ExecuteCMakeCommand(args);
 }
-#endif
 
 int do_cmake(int ac, char const* const* av);
-#ifndef CMAKE_DISABLE_MAIN
-static int do_build(int ac, char const* const* av);
-#endif
+int do_build(int ac, char const* const* av);
 
 static cmMakefile* cmakemainGetMakefile(void* clientdata)
 {
@@ -362,8 +358,7 @@ int do_cmake(int ac, char const* const* av)
   return 0;
 }
 
-#ifndef CMAKE_DISABLE_MAIN
-static int do_build(int ac, char const* const* av)
+int do_build(int ac, char const* const* av)
 {
 #ifndef CMAKE_BUILD_WITH_CMAKE
   std::cerr << "This cmake does not support --build\n";
@@ -443,4 +438,3 @@ static int do_build(int ac, char const* const* av)
   return cm.Build(dir, target, config, nativeOptions, clean);
 #endif
 }
-#endif
