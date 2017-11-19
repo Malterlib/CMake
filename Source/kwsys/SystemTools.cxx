@@ -15,6 +15,12 @@
 #endif
 #endif
 
+#ifdef _MSC_VER
+#define CM_CDECL __cdecl
+#else
+#define CM_CDECL
+#endif
+
 #include "kwsysPrivate.h"
 #include KWSYS_HEADER(RegularExpression.hxx)
 #include KWSYS_HEADER(SystemTools.hxx)
@@ -4895,7 +4901,7 @@ void SystemTools::ClassFinalize()
 #include <stdlib.h>
 namespace KWSYS_NAMESPACE {
 
-static int SystemToolsDebugReport(int, char* message, int*)
+static int CM_CDECL SystemToolsDebugReport(int, char* message, int*)
 {
   fprintf(stderr, "%s", message);
   fflush(stderr);
