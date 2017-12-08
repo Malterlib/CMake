@@ -236,7 +236,7 @@ void cmMalterlibRegistry::outputRecursive(cmGeneratedFileStream &stream,
 
 cmMalterlibRegistry cmMalterlibRegistry::pruneLoneChildrenRecursive()
 {
-  if (Children.size() == 1 && !Protected)
+  if (Children.size() == 1 && !Protected && Key == "%Group")
     return Children.front().pruneLoneChildrenRecursive();
   return *this;
 }
