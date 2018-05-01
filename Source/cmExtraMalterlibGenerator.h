@@ -29,7 +29,7 @@ public:
   static cmExternalMakefileProjectGeneratorFactory* GetFactory();
   cmExtraMalterlibGenerator();
 
-  void Generate() CM_OVERRIDE;
+  void Generate() override;
 
 private:
   void CreateProjectFile(const std::vector<cmLocalGenerator*>& lgs);

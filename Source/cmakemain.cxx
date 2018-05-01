@@ -101,8 +101,8 @@ int do_command(int ac, char const* const* av)
 }
 
 int do_cmake(int ac, char const* const* av);
-static int do_build(int ac, char const* const* av);
-static int do_open(int ac, char const* const* av);
+int do_build(int ac, char const* const* av);
+int do_open(int ac, char const* const* av);
 
 static cmMakefile* cmakemainGetMakefile(void* clientdata)
 {
@@ -438,7 +438,7 @@ int do_build(int ac, char const* const* av)
 #endif
 }
 
-static int do_open(int ac, char const* const* av)
+int do_open(int ac, char const* const* av)
 {
 #ifndef CMAKE_BUILD_WITH_CMAKE
   std::cerr << "This cmake does not support --open\n";

@@ -306,7 +306,7 @@ void cmExtraMalterlibGenerator::AppendAllTargets(
             break;
           }
 
-          this->AppendTarget(registry, *lg, CM_NULLPTR, make.c_str(),
+          this->AppendTarget(registry, *lg, nullptr, make.c_str(),
                              makefile, compiler.c_str(), 
                              false);
           break;
@@ -473,7 +473,7 @@ void cmExtraMalterlibGenerator::AddFilesToRegistry(
           for (auto &line : newCommandLine) {
             if (baseDir && cmSystemTools::StringStartsWith(line, baseDir))
               line = makeAbsoluteWrapper(line);
-            else if (cmSystemTools::StringStartsWith(line, binaryDir))
+            else if (cmSystemTools::StringStartsWith(line, binaryDir.c_str()))
               line = makeAbsoluteWrapper(line);
           }
 
@@ -509,7 +509,7 @@ void cmExtraMalterlibGenerator::AddFilesToRegistry(
 
       if (const char* cflags = file->GetProperty("COMPILE_FLAGS")) {
         cmGeneratorExpression ge;
-		CM_AUTO_PTR<cmCompiledGeneratorExpression> expression = ge.Parse(cflags);
+        std::unique_ptr<cmCompiledGeneratorExpression> expression = ge.Parse(cflags);
         const char* processed = expression->Evaluate(lg, configName);
         std::string cStd;
         ParseCompileFlags(defines, cStd, processed);
@@ -529,7 +529,7 @@ void cmExtraMalterlibGenerator::AppendTarget(
   const cmMakefile* makefile, const char* /*compiler*/,
   bool firstTarget)
 {
-  if (target == CM_NULLPTR)
+  if (target == nullptr)
     return;
   
   std::string configName = "Debug";
