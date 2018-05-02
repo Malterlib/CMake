@@ -32,6 +32,24 @@ This generator was initially based off of the Sublime Text generator.
 
 namespace
 {
+// Returns if string starts with another string
+#if defined(_WIN32)
+  bool StringStartsWithPath(const std::string& str1, const char* str2)
+  {
+    if (!str2) {
+      return false;
+    }
+    size_t len1 = str1.size(), len2 = strlen(str2);
+    return len1 >= len2 && !strnicmp(str1.c_str(), str2, len2) ? true : false;
+  }
+#else
+  bool StringStartsWithPath(const std::string& str1, const char* str2)
+  {
+    return cmSystemTools::StringStartsWith(str1, str2);
+  }
+#endif
+
+
   std::string GetTargetName(const cmGeneratorTarget* target) {
     std::string prefix;
     switch (target->GetType()) {
@@ -353,7 +371,7 @@ cmMalterlibRegistry& cmExtraMalterlibGenerator::AddFileInGroup(
 ) {
   std::string strippedFileName = fileName;
   for (auto &prefix : ReplacePrefixes){
-    if (cmSystemTools::StringStartsWith(strippedFileName.c_str(), prefix.first.c_str())) {
+    if (StringStartsWithPath(strippedFileName.c_str(), prefix.first.c_str())) {
       strippedFileName = prefix.second + strippedFileName.substr(prefix.first.size());
       break;
     }
@@ -362,7 +380,7 @@ cmMalterlibRegistry& cmExtraMalterlibGenerator::AddFileInGroup(
   bool bFirstPrefix = true;
   bool bProtectGroups = false;
   for (auto &prefix : HidePrefixes){
-    if (cmSystemTools::StringStartsWith(strippedFileName.c_str(), prefix.c_str())) {
+    if (StringStartsWithPath(strippedFileName.c_str(), prefix.c_str())) {
       if (bFirstPrefix)
         bProtectGroups = true;
       strippedFileName = strippedFileName.substr(prefix.size()+1);
@@ -471,9 +489,9 @@ void cmExtraMalterlibGenerator::AddFilesToRegistry(
           
           auto newCommandLine = commandLine;
           for (auto &line : newCommandLine) {
-            if (baseDir && cmSystemTools::StringStartsWith(line, baseDir))
+            if (baseDir && StringStartsWithPath(line, baseDir))
               line = makeAbsoluteWrapper(line);
-            else if (cmSystemTools::StringStartsWith(line, binaryDir.c_str()))
+            else if (StringStartsWithPath(line, binaryDir.c_str()))
               line = makeAbsoluteWrapper(line);
           }
 
