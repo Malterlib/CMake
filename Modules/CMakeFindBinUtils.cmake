@@ -172,12 +172,22 @@ elseif("x${CMAKE_${_CMAKE_PROCESSING_LANGUAGE}_COMPILER_ID}" MATCHES "^xIAR$")
 
 # in all other cases search for ar, ranlib, etc.
 else()
-  if(CMAKE_C_COMPILER_EXTERNAL_TOOLCHAIN)
-    set(_CMAKE_TOOLCHAIN_LOCATION ${_CMAKE_TOOLCHAIN_LOCATION} ${CMAKE_C_COMPILER_EXTERNAL_TOOLCHAIN}/bin)
-  endif()
-  if(CMAKE_CXX_COMPILER_EXTERNAL_TOOLCHAIN)
-    set(_CMAKE_TOOLCHAIN_LOCATION ${_CMAKE_TOOLCHAIN_LOCATION} ${CMAKE_CXX_COMPILER_EXTERNAL_TOOLCHAIN}/bin)
-  endif()
+  # The tools can be in the external toolchain of any of the compilers. The compilers of Compiler/Clang.cmake take a
+  # toolchain that ends in /bin as the directory of the tools, which they pass with -B; others take the root of a toolchain.
+  # A compiler that isn't determined yet, as of a language enabled later, is taken to be one of Clang.
+  foreach(_CMAKE_TOOLCHAIN_LANGUAGE IN ITEMS C CXX OBJC OBJCXX SYCL)
+    set(_CMAKE_EXTERNAL_TOOLCHAIN "${CMAKE_${_CMAKE_TOOLCHAIN_LANGUAGE}_COMPILER_EXTERNAL_TOOLCHAIN}")
+    if(_CMAKE_EXTERNAL_TOOLCHAIN)
+      if("${_CMAKE_EXTERNAL_TOOLCHAIN}" MATCHES ".*/bin\$"
+          AND "${CMAKE_${_CMAKE_TOOLCHAIN_LANGUAGE}_COMPILER_ID}" MATCHES "^((Apple|Cray|DP|Fujitsu)?Clang)?\$")
+        list(APPEND _CMAKE_TOOLCHAIN_LOCATION "${_CMAKE_EXTERNAL_TOOLCHAIN}")
+      else()
+        list(APPEND _CMAKE_TOOLCHAIN_LOCATION "${_CMAKE_EXTERNAL_TOOLCHAIN}/bin")
+      endif()
+    endif()
+  endforeach()
+  unset(_CMAKE_TOOLCHAIN_LANGUAGE)
+  unset(_CMAKE_EXTERNAL_TOOLCHAIN)
 
   # Start with the canonical names.
   set(_CMAKE_AR_NAMES "ar")
