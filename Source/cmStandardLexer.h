@@ -4,8 +4,10 @@
 
 #if defined(__linux)
 /* Needed for glibc < 2.12 */
+#ifndef _XOPEN_SOURCE
 // NOLINTNEXTLINE(bugprone-reserved-identifier)
 #  define _XOPEN_SOURCE 600
+#endif
 #endif
 #if !defined(_POSIX_C_SOURCE) && !defined(_WIN32) && !defined(__sun) &&       \
   !defined(__OpenBSD__)
