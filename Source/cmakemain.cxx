@@ -102,7 +102,7 @@ static const char* cmDocumentationOptions[][2] = {
 
 #endif
 
-static int do_command(int ac, char const* const* av)
+int do_command(int ac, char const* const* av)
 {
   std::vector<std::string> args;
   args.reserve(ac - 1);
@@ -112,8 +112,8 @@ static int do_command(int ac, char const* const* av)
 }
 
 int do_cmake(int ac, char const* const* av);
-static int do_build(int ac, char const* const* av);
-static int do_open(int ac, char const* const* av);
+int do_build(int ac, char const* const* av);
+int do_open(int ac, char const* const* av);
 
 static cmMakefile* cmakemainGetMakefile(void* clientdata)
 {
@@ -168,6 +168,14 @@ static void cmakemainProgressCallback(const char* m, float prog,
   std::cout.flush();
 }
 
+void prepare_cmake(char const *exe_path) {
+  cmSystemTools::InitializeLibUV();
+  cmSystemTools::FindCMakeResources(exe_path);
+  cmSystemTools::SetRunCommandHideConsole(true);
+}
+
+#ifndef CMAKE_DISABLE_MAIN
+
 int main(int ac, char const* const* av)
 {
 #if defined(_WIN32) && defined(CMAKE_BUILD_WITH_CMAKE)
@@ -183,8 +191,7 @@ int main(int ac, char const* const* av)
   av = args.argv();
 
   cmSystemTools::EnableMSVCDebugHook();
-  cmSystemTools::InitializeLibUV();
-  cmSystemTools::FindCMakeResources(av[0]);
+  prepare_cmake(av[0]);
   if (ac > 1) {
     if (strcmp(av[1], "--build") == 0) {
       return do_build(ac, av);
@@ -203,6 +210,8 @@ int main(int ac, char const* const* av)
   uv_loop_close(uv_default_loop());
   return ret;
 }
+
+#endif
 
 int do_cmake(int ac, char const* const* av)
 {
@@ -348,7 +357,7 @@ int do_cmake(int ac, char const* const* av)
   return 0;
 }
 
-static int do_build(int ac, char const* const* av)
+int do_build(int ac, char const* const* av)
 {
 #ifndef CMAKE_BUILD_WITH_CMAKE
   std::cerr << "This cmake does not support --build\n";
@@ -470,7 +479,7 @@ static int do_build(int ac, char const* const* av)
 #endif
 }
 
-static int do_open(int ac, char const* const* av)
+int do_open(int ac, char const* const* av)
 {
 #ifndef CMAKE_BUILD_WITH_CMAKE
   std::cerr << "This cmake does not support --open\n";
