@@ -1,7 +1,9 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
    file Copyright.txt or https://cmake.org/licensing#kwsys for details.  */
 #if defined(_WIN32)
-#  define NOMINMAX // use our min,max
+#  ifndef NOMINMAX
+#    define NOMINMAX // use our min,max
+#  endif
 #  if !defined(_WIN32_WINNT) && defined(_MSC_VER) && _MSC_VER >= 1800
 #    define _WIN32_WINNT 0x0600 // vista
 #  endif
@@ -3943,6 +3945,7 @@ long long SystemInformationImplementation::GetProcessId()
 #  pragma warning(disable : 4091) /* 'typedef ': ignored on left of '' */
 #  include "dbghelp.h"
 #  pragma warning(pop)
+#  pragma comment(lib, "dbghelp.lib")
 #endif
 
 /**

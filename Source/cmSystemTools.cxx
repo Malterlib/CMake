@@ -1091,7 +1091,7 @@ std::string cmSystemTools::ComputeCertificateThumbprint(
     DWORD fileSize = GetFileSize(certFile, NULL);
     if (fileSize != INVALID_FILE_SIZE) {
       auto certData = cm::make_unique<BYTE[]>(fileSize);
-      if (certData != NULL) {
+      if (certData != nullptr) {
         DWORD dwRead = 0;
         if (ReadFile(certFile, certData.get(), fileSize, &dwRead, NULL)) {
           cryptBlob.cbData = fileSize;

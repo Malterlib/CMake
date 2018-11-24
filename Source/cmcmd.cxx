@@ -1,5 +1,10 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
    file Copyright.txt or https://cmake.org/licensing for details.  */
+
+#ifdef _WIN32
+#  include <WinSock2.h>
+#endif
+
 #include "cmcmd.h"
 
 #include <cmext/algorithm>
