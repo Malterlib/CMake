@@ -1,6 +1,6 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
    file Copyright.txt or https://cmake.org/licensing#kwsys for details.  */
-#if defined(_WIN32)
+#if defined(_WIN32) && !defined(NOMINMAX)
 #  define NOMINMAX // hide min,max to not conflict with <limits>
 #endif
 
