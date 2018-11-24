@@ -613,7 +613,7 @@ bool IsVisualStudioMacrosFileRegistered(const std::string& macrosFile,
 
         RegCloseKey(hsubkey);
       } else {
-        std::cout << "error opening subkey: " << subkeyname << std::endl;
+        std::wcout << L"error opening subkey: " << subkeyname << std::endl;
         std::cout << std::endl;
       }
 
