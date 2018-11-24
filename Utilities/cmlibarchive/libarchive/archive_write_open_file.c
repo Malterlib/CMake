@@ -53,7 +53,7 @@ struct write_FILE_data {
 
 static int	file_close(struct archive *, void *);
 static int	file_open(struct archive *, void *);
-static ssize_t	file_write(struct archive *, void *, const void *buff, size_t);
+static la_ssize_t	file_write(struct archive *, void *, const void *buff, size_t);
 
 int
 archive_write_open_FILE(struct archive *a, FILE *f)
@@ -79,7 +79,7 @@ file_open(struct archive *a, void *client_data)
 	return (ARCHIVE_OK);
 }
 
-static ssize_t
+static la_ssize_t
 file_write(struct archive *a, void *client_data, const void *buff, size_t length)
 {
 	struct write_FILE_data	*mine;
