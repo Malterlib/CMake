@@ -283,7 +283,7 @@ cleanup:
     CloseHandle(ca_file_handle);
   }
   Curl_safefree(ca_file_buffer);
-  Curl_unicodefree(ca_file_tstr);
+  Curl_unicodefree((void *)ca_file_tstr);
 
   return result;
 }
