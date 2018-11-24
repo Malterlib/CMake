@@ -970,14 +970,14 @@ CF_INLINE CFStringRef getsubject(SecCertificateRef cert)
 #else
 #if CURL_BUILD_MAC_10_7
   /* Lion & later: Get the long description if we can. */
-  if(SecCertificateCopyLongDescription)
+  if(&SecCertificateCopyLongDescription)
     server_cert_summary =
       SecCertificateCopyLongDescription(NULL, cert, NULL);
   else
 #endif /* CURL_BUILD_MAC_10_7 */
 #if CURL_BUILD_MAC_10_6
   /* Snow Leopard: Get the certificate summary. */
-  if(SecCertificateCopySubjectSummary)
+  if(&SecCertificateCopySubjectSummary)
     server_cert_summary = SecCertificateCopySubjectSummary(cert);
   else
 #endif /* CURL_BUILD_MAC_10_6 */
@@ -1090,7 +1090,7 @@ static OSStatus CopyIdentityWithLabel(char *label,
   /* SecItemCopyMatching() was introduced in iOS and Snow Leopard.
      kSecClassIdentity was introduced in Lion. If both exist, let's use them
      to find the certificate. */
-  if(SecItemCopyMatching && kSecClassIdentity) {
+  if(&SecItemCopyMatching && kSecClassIdentity) {
     CFTypeRef keys[5];
     CFTypeRef values[5];
     CFDictionaryRef query_dict;
@@ -1383,7 +1383,7 @@ static CURLcode set_ssl_version_min_max(struct Curl_cfilter *cf,
   }
 
 #if CURL_BUILD_MAC_10_8 || CURL_BUILD_IOS
-  if(SSLSetProtocolVersionMax) {
+  if(&SSLSetProtocolVersionMax) {
     SSLProtocol darwin_ver_min = kTLSProtocol1;
     SSLProtocol darwin_ver_max = kTLSProtocol1;
     CURLcode result = sectransp_version_from_curl(&darwin_ver_min,
@@ -1675,7 +1675,7 @@ static CURLcode sectransp_connect_step1(struct Curl_cfilter *cf,
 #endif /* CURL_BUILD_MAC */
 
 #if CURL_BUILD_MAC_10_8 || CURL_BUILD_IOS
-  if(SSLCreateContext) {  /* use the newer API if available */
+  if(&SSLCreateContext) {  /* use the newer API if available */
     if(backend->ssl_ctx)
       CFRelease(backend->ssl_ctx);
     backend->ssl_ctx = SSLCreateContext(NULL, kSSLClientSide, kSSLStreamType);
@@ -1709,7 +1709,7 @@ static CURLcode sectransp_connect_step1(struct Curl_cfilter *cf,
 
   /* check to see if we've been told to use an explicit SSL/TLS version */
 #if CURL_BUILD_MAC_10_8 || CURL_BUILD_IOS
-  if(SSLSetProtocolVersionMax) {
+  if(&SSLSetProtocolVersionMax) {
     switch(conn_config->version) {
     case CURL_SSLVERSION_TLSv1:
       (void)SSLSetProtocolVersionMin(backend->ssl_ctx, kTLSProtocol1);
@@ -1962,7 +1962,7 @@ static CURLcode sectransp_connect_step1(struct Curl_cfilter *cf,
   Darwin 15.x.x is El Capitan (10.11)
   */
 #if CURL_BUILD_MAC
-  if(SSLSetSessionOption && darwinver_maj >= 13) {
+  if(&SSLSetSessionOption && darwinver_maj >= 13) {
 #else
   if(SSLSetSessionOption) {
 #endif /* CURL_BUILD_MAC */
@@ -2045,7 +2045,7 @@ static CURLcode sectransp_connect_step1(struct Curl_cfilter *cf,
 #if CURL_BUILD_MAC_10_9 || CURL_BUILD_IOS_7
   /* We want to enable 1/n-1 when using a CBC cipher unless the user
      specifically doesn't want us doing that: */
-  if(SSLSetSessionOption) {
+  if(&SSLSetSessionOption) {
     SSLSetSessionOption(backend->ssl_ctx, kSSLSessionOptionSendOneByteRecord,
                         !ssl_config->enable_beast);
     SSLSetSessionOption(backend->ssl_ctx, kSSLSessionOptionFalseStart,
@@ -2944,7 +2944,7 @@ static CURLcode collect_server_cert(struct Curl_cfilter *cf,
      private API and doesn't work as expected. So we have to look for
      a different symbol to make sure this code is only executed under
      Lion or later. */
-  if(SecTrustCopyPublicKey) {
+  if(&SecTrustCopyPublicKey) {
 #pragma unused(server_certs)
     err = SSLCopyPeerTrust(backend->ssl_ctx, &trust);
     /* For some reason, SSLCopyPeerTrust() can return noErr and yet return
@@ -3160,7 +3160,7 @@ static void sectransp_close(struct Curl_cfilter *cf, struct Curl_easy *data)
     CURL_TRC_CF(data, cf, "close");
     (void)SSLClose(backend->ssl_ctx);
 #if CURL_BUILD_MAC_10_8 || CURL_BUILD_IOS
-    if(SSLCreateContext)
+    if(&SSLCreateContext)
       CFRelease(backend->ssl_ctx);
 #if CURL_SUPPORT_MAC_10_8
     else
@@ -3298,7 +3298,7 @@ static CURLcode sectransp_sha256sum(const unsigned char *tmp, /* input */
 static bool sectransp_false_start(void)
 {
 #if CURL_BUILD_MAC_10_9 || CURL_BUILD_IOS_7
-  if(SSLSetSessionOption)
+  if(&SSLSetSessionOption)
     return TRUE;
 #endif
   return FALSE;
