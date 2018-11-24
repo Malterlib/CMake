@@ -2884,7 +2884,7 @@ cm::optional<bool> AdjustRPathELF(std::string const& file,
       // Write the new rpath.  Follow it with enough null terminators to
       // fill the string table entry.
       f << rp[i].Value;
-      for (unsigned long j = rp[i].Value.length(); j < rp[i].Size; ++j) {
+      for (auto j = rp[i].Value.length(); j < rp[i].Size; ++j) {
         f << '\0';
       }
 
