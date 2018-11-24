@@ -17,6 +17,10 @@
  * but updated to support IDNA 2008.
  */
 
+#ifdef _MSC_VER
+#   pragma warning(disable:4146)
+#endif
+
 #include "uv.h"
 #include "idna.h"
 #include <assert.h>

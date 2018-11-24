@@ -51,7 +51,7 @@ static int	memory_read_close(struct archive *, void *);
 static int	memory_read_open(struct archive *, void *);
 static int64_t	memory_read_seek(struct archive *, void *, int64_t offset, int whence);
 static int64_t	memory_read_skip(struct archive *, void *, int64_t request);
-static ssize_t	memory_read(struct archive *, void *, const void **buff);
+static la_ssize_t	memory_read(struct archive *, void *, const void **buff);
 
 int
 archive_read_open_memory(struct archive *a, const void *buff, size_t size)
@@ -105,7 +105,7 @@ memory_read_open(struct archive *a, void *client_data)
  * in a test harness.  Production use should not specify a block
  * size; then this is much faster.
  */
-static ssize_t
+static la_ssize_t
 memory_read(struct archive *a, void *client_data, const void **buff)
 {
 	struct read_memory_data *mine = (struct read_memory_data *)client_data;
