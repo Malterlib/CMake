@@ -172,12 +172,31 @@ elseif("x${CMAKE_${_CMAKE_PROCESSING_LANGUAGE}_COMPILER_ID}" MATCHES "^xIAR$")
 
 # in all other cases search for ar, ranlib, etc.
 else()
-  if(CMAKE_C_COMPILER_EXTERNAL_TOOLCHAIN)
-    set(_CMAKE_TOOLCHAIN_LOCATION ${_CMAKE_TOOLCHAIN_LOCATION} ${CMAKE_C_COMPILER_EXTERNAL_TOOLCHAIN}/bin)
-  endif()
-  if(CMAKE_CXX_COMPILER_EXTERNAL_TOOLCHAIN)
-    set(_CMAKE_TOOLCHAIN_LOCATION ${_CMAKE_TOOLCHAIN_LOCATION} ${CMAKE_CXX_COMPILER_EXTERNAL_TOOLCHAIN}/bin)
-  endif()
+  # The tools can be in the external toolchain of any of the compilers. The compilers of Compiler/Clang.cmake, which those of
+  # the IDs that end in Clang build on, take a toolchain that ends in /bin as the directory of the tools, which they pass with
+  # -B; others take the root of a toolchain. A compiler that isn't determined yet, as of a language enabled later, can be
+  # either: the bin directory of the root is searched first, as for the others, and then the directory itself.
+  foreach(_CMAKE_TOOLCHAIN_LANGUAGE IN ITEMS C CXX OBJC OBJCXX SYCL)
+    set(_CMAKE_EXTERNAL_TOOLCHAIN "${CMAKE_${_CMAKE_TOOLCHAIN_LANGUAGE}_COMPILER_EXTERNAL_TOOLCHAIN}")
+    set(_CMAKE_EXTERNAL_TOOLCHAIN_ID "${CMAKE_${_CMAKE_TOOLCHAIN_LANGUAGE}_COMPILER_ID}")
+    # AdaptiveCpp takes the rules of its host compiler, as of Compiler/Clang-SYCL.cmake for Clang
+    if(_CMAKE_EXTERNAL_TOOLCHAIN_ID STREQUAL "AdaptiveCpp")
+      set(_CMAKE_EXTERNAL_TOOLCHAIN_ID "${CMAKE_${_CMAKE_TOOLCHAIN_LANGUAGE}_HOST_COMPILER_ID}")
+    endif()
+    if(_CMAKE_EXTERNAL_TOOLCHAIN)
+      if(NOT "${_CMAKE_EXTERNAL_TOOLCHAIN}" MATCHES ".*/bin\$"
+          OR NOT "${_CMAKE_EXTERNAL_TOOLCHAIN_ID}" MATCHES "Clang\$")
+        list(APPEND _CMAKE_TOOLCHAIN_LOCATION "${_CMAKE_EXTERNAL_TOOLCHAIN}/bin")
+      endif()
+      if("${_CMAKE_EXTERNAL_TOOLCHAIN}" MATCHES ".*/bin\$"
+          AND "${_CMAKE_EXTERNAL_TOOLCHAIN_ID}" MATCHES "^(.*Clang)?\$")
+        list(APPEND _CMAKE_TOOLCHAIN_LOCATION "${_CMAKE_EXTERNAL_TOOLCHAIN}")
+      endif()
+    endif()
+  endforeach()
+  unset(_CMAKE_TOOLCHAIN_LANGUAGE)
+  unset(_CMAKE_EXTERNAL_TOOLCHAIN)
+  unset(_CMAKE_EXTERNAL_TOOLCHAIN_ID)
 
   # Start with the canonical names.
   set(_CMAKE_AR_NAMES "ar")
