@@ -394,10 +394,13 @@ cmGlobalFastbuildGenerator::GenerateBuildCommand(
     return { std::move(makeCommand) };
   }
 
-  // Make "rebuild-bff" target up-to-date before running the build.
+  // Make "rebuild-bff" target up-to-date before running the build. Without
+  // a build command, the build fails with the error reported here.
   std::string output;
-  ExecuteFastbuildTarget(projectDir, FASTBUILD_REBUILD_BFF_TARGET_NAME, output,
-                         { "-why" });
+  if (!ExecuteFastbuildTarget(projectDir, FASTBUILD_REBUILD_BFF_TARGET_NAME,
+                              output, { "-why" })) {
+    return {};
+  }
 
   // If fbuild.bff was re-generated we need to "restat" it.
   if (output.find("Need to build") != std::string::npos) {
@@ -408,7 +411,9 @@ cmGlobalFastbuildGenerator::GenerateBuildCommand(
     // inputs have changes after re-generation which might happen if, for
     // example, configuration depends on some files generated during
     // the configuration itself.
-    AskCMakeToMakeRebuildBFFUpToDate(projectDir);
+    if (!AskCMakeToMakeRebuildBFFUpToDate(projectDir)) {
+      return {};
+    }
   }
 
   return { std::move(makeCommand) };
@@ -482,8 +487,11 @@ void cmGlobalFastbuildGenerator::Generate()
     this->GetCMakeInstance()->GetHomeOutputDirectory();
   //  Make "rebuild-bff" target up-to-date after the generation.
   //  This is actually a noop, it just asks CMake to touch the generated file
-  //  so FASTBuild would consider the target as up-to-date.
-  AskCMakeToMakeRebuildBFFUpToDate(workingDir);
+  //  so FASTBuild would consider the target as up-to-date. A failure is
+  //  reported as an error, which fails the generation.
+  if (!AskCMakeToMakeRebuildBFFUpToDate(workingDir)) {
+    return;
+  }
 
   if (this->GlobalSettingIsOn("CMAKE_EXPORT_COMPILE_COMMANDS")) {
     std::string output;
@@ -492,7 +500,7 @@ void cmGlobalFastbuildGenerator::Generate()
   }
 }
 
-void cmGlobalFastbuildGenerator::AskCMakeToMakeRebuildBFFUpToDate(
+bool cmGlobalFastbuildGenerator::AskCMakeToMakeRebuildBFFUpToDate(
   std::string const& workingDir) const
 {
   // "restat" the generated build file.
@@ -505,11 +513,11 @@ void cmGlobalFastbuildGenerator::AskCMakeToMakeRebuildBFFUpToDate(
     std::ios::out | std::ios::binary
   } << cmStrCat(workingDir, '/', FASTBUILD_BUILD_FILE);
   std::string output;
-  ExecuteFastbuildTarget(workingDir, FASTBUILD_REBUILD_BFF_TARGET_NAME,
-                         output);
+  return ExecuteFastbuildTarget(workingDir, FASTBUILD_REBUILD_BFF_TARGET_NAME,
+                                output);
 }
 
-void cmGlobalFastbuildGenerator::ExecuteFastbuildTarget(
+bool cmGlobalFastbuildGenerator::ExecuteFastbuildTarget(
   std::string const& dir, std::string const& target, std::string& output,
   std::vector<std::string> const& fbuildOptions) const
 {
@@ -533,8 +541,9 @@ void cmGlobalFastbuildGenerator::ExecuteFastbuildTarget(
                                   cmJoin(command, "' '"), "'\nOutput:\n",
                                   output));
     cmSystemTools::Stdout(output);
-    std::exit(retVal);
+    return false;
   }
+  return true;
 }
 
 void cmGlobalFastbuildGenerator::WriteSettings()

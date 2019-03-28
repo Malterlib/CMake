@@ -589,8 +589,8 @@ public:
   std::string GetTargetName(cmGeneratorTarget const* GeneratorTarget) const;
   cm::optional<FastbuildTarget> GetTargetByOutputName(
     std::string const& output) const;
-  void AskCMakeToMakeRebuildBFFUpToDate(std::string const& workingDir) const;
-  void ExecuteFastbuildTarget(
+  bool AskCMakeToMakeRebuildBFFUpToDate(std::string const& workingDir) const;
+  bool ExecuteFastbuildTarget(
     std::string const& dir, std::string const& target, std::string& output,
     std::vector<std::string> const& fbuildOptions = {}) const;
 

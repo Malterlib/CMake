@@ -557,6 +557,43 @@ public:
   /** Find the directory containing CMake executables.  */
   static void FindCMakeResources(char const* argv0);
 
+  /** Thrown by Exit while the thread has an ExitExceptionScope.  */
+  struct ExitException
+  {
+    int Code;
+  };
+
+  /** While a thread has one, Exit throws ExitException there.  cmake_main and
+      ctest_main have one and return the code of the exception, so that an
+      executable that embeds them ends in its own way.  */
+  class ExitExceptionScope
+  {
+  public:
+    ExitExceptionScope();
+    ~ExitExceptionScope();
+    ExitExceptionScope(ExitExceptionScope const&) = delete;
+    ExitExceptionScope& operator=(ExitExceptionScope const&) = delete;
+  };
+
+  /** Ends the process with the code as exit() does, as for cpack, unless the
+      thread has an ExitExceptionScope, which gets the code as an
+      ExitException.  */
+  [[noreturn]] static void Exit(int code);
+
+  /** For as long as one exists, a call of exit() ends the process as a crash.
+      cmake_main and ctest_main have one when another executable embeds them:
+      its exit handlers can't run from the middle of its work, and the calls of
+      exit() that are left, as of the generated lexers for an internal error,
+      don't use Exit.  */
+  class AbortOnExit
+  {
+  public:
+    AbortOnExit();
+    ~AbortOnExit();
+    AbortOnExit(AbortOnExit const&) = delete;
+    AbortOnExit& operator=(AbortOnExit const&) = delete;
+  };
+
   /** Get the CMake resource paths, after FindCMakeResources.  */
   static std::string const& GetCTestCommand();
   static std::string const& GetCPackCommand();
