@@ -1543,7 +1543,7 @@ void cmake::SetArgs(std::vector<std::string> const& args)
     // Additionally it can't be the source/binary tree location
     if (!parsedCorrectly) {
       cmSystemTools::Error("Run 'cmake --help' for all supported options.");
-      exit(1);
+      cmSystemTools::Exit(1);
     }
     if (!matched) {
       if (cmHasPrefix(arg, '-')) {
@@ -1570,7 +1570,7 @@ void cmake::SetArgs(std::vector<std::string> const& args)
     }
     cmSystemTools::Error(error);
     cmSystemTools::Error("Run 'cmake --help' for all supported options.");
-    exit(1);
+    cmSystemTools::Exit(1);
   }
 
   // Empty instance, platform and toolset if only a generator is specified

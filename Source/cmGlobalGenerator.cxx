@@ -2811,6 +2811,12 @@ int cmGlobalGenerator::Build(cmBuildArgs const& buildArgs,
     makeCommandCSTR, buildArgs.projectName, buildArgs.binaryDir, targets,
     realConfig, buildArgs.jobs, buildArgs.verbose, buildOptions, nativeOptions,
     isInTryCompile);
+  // A generator returns no command when preparing the build failed, after
+  // reporting the error.
+  if (makeCommand.empty()) {
+    cmSystemTools::SetRunCommandHideConsole(hideconsole);
+    return 1;
+  }
 
   // should we do a clean first?
   if (buildOptions.Clean) {
@@ -2819,6 +2825,10 @@ int cmGlobalGenerator::Build(cmBuildArgs const& buildArgs,
                                  buildArgs.binaryDir, { "clean" }, realConfig,
                                  buildArgs.jobs, buildArgs.verbose,
                                  buildOptions);
+    if (cleanCommand.empty()) {
+      cmSystemTools::SetRunCommandHideConsole(hideconsole);
+      return 1;
+    }
     ostr << "\nRun Clean Command: " << cleanCommand.front().QuotedPrintable()
          << std::endl;
     if (cleanCommand.size() != 1) {

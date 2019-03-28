@@ -136,12 +136,17 @@ cmInstrumentationInterrupt::HandleInterrupt(
     return { callback(), false, 0, true };
   }
   InstallInterruptHandler();
+  // Also when the callback ends with cmSystemTools::ExitException, as it can
+  // in an executable that embeds CMake, which keeps running.
+  struct RestoreOnReturn
+  {
+    ~RestoreOnReturn() { RestoreInterruptHandler(); }
+  } restoreOnReturn;
   interruptInjected = false;
   // Test-only: allow the suite to inject an interrupt deterministically.
   InjectTestInterrupt();
   int ret = callback();
   int sig = PendingInterruptSignal();
-  RestoreInterruptHandler();
   // A real OS interrupt should be re-raised so the exit status reflects it; an
   // injected (test) interrupt should not, so the process exits cleanly.
   return { ret, sig != 0, sig, !interruptInjected };

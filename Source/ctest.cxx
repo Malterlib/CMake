@@ -188,15 +188,15 @@ cmDocumentationEntry const cmDocumentationOptions[] = {
 };
 } // anonymous namespace
 
-// this is a test driver program for cmCTest.
-int main(int argc, char const* const* argv)
-{
+// this is a test driver program for cmCTest. The arguments are UTF-8, as an
+// executable that embeds ctest passes its own arguments.
+int ctest_main(int argc, char const* const* argv)
+try {
+  cmSystemTools::ExitExceptionScope exitExceptionScope;
+#ifdef CMAKE_DISABLE_MAIN
+  cmSystemTools::AbortOnExit abortOnExit;
+#endif
   cm::StdIo::Console console;
-
-  cmsys::Encoding::CommandLineArguments encoding_args =
-    cmsys::Encoding::CommandLineArguments::Main(argc, argv);
-  argc = encoding_args.argc();
-  argv = encoding_args.argv();
 
   cmSystemTools::InitializeLibUV();
   cmSystemTools::FindCMakeResources(argv[0]);
@@ -268,4 +268,19 @@ int main(int argc, char const* const* argv)
 
   // run ctest
   return cmCTest{}.Run(args);
+} catch (cmSystemTools::ExitException const& exitException) {
+  return exitException.Code;
 }
+
+#ifndef CMAKE_DISABLE_MAIN
+
+int main(int argc, char const* const* argv)
+{
+  // On Windows, the arguments in UTF-8 come from the command line of the
+  // process
+  cmsys::Encoding::CommandLineArguments encoding_args =
+    cmsys::Encoding::CommandLineArguments::Main(argc, argv);
+  return ctest_main(encoding_args.argc(), encoding_args.argv());
+}
+
+#endif

@@ -533,7 +533,8 @@ void cmGlobalFastbuildGenerator::ExecuteFastbuildTarget(
                                   cmJoin(command, "' '"), "'\nOutput:\n",
                                   output));
     cmSystemTools::Stdout(output);
-    std::exit(retVal);
+    // When fbuild can't start there is no status of it
+    cmSystemTools::Exit(retVal != 0 ? retVal : 1);
   }
 }
 

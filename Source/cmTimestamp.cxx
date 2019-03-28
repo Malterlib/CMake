@@ -53,7 +53,7 @@ std::string cmTimestamp::CurrentTime(cm::string_view formatString,
     iss >> currentTimeT;
     if (iss.fail() || !iss.eof()) {
       cmSystemTools::Error("Cannot parse SOURCE_DATE_EPOCH as integer");
-      exit(27);
+      cmSystemTools::Exit(27);
     }
     // SOURCE_DATE_EPOCH has only a resolution in the seconds range
     microseconds = 0;
