@@ -833,7 +833,7 @@ int do_open(int ac, char const* const* av)
 }
 } // namespace
 
-int main(int ac, char const* const* av)
+int cmake_main(int ac, char const* const* av)
 {
   cmSystemTools::EnsureStdPipes();
 
@@ -848,6 +848,7 @@ int main(int ac, char const* const* av)
 
   cmSystemTools::InitializeLibUV();
   cmSystemTools::FindCMakeResources(av[0]);
+  cmSystemTools::SetRunCommandHideConsole(true);
   if (ac > 1) {
     if (strcmp(av[1], "--build") == 0) {
       return do_build(ac, av);
@@ -871,3 +872,12 @@ int main(int ac, char const* const* av)
   }
   return ret;
 }
+
+#ifndef CMAKE_DISABLE_MAIN
+
+int main(int ac, char const* const* av)
+{
+	return cmake_main(ac, av);
+}
+
+#endif
