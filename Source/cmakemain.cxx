@@ -186,7 +186,7 @@ static void cmakemainProgressCallback(const std::string& m, float prog,
   std::cout.flush();
 }
 
-int main(int ac, char const* const* av)
+int cmake_main(int ac, char const* const* av)
 {
   cmSystemTools::EnsureStdPipes();
 #if defined(_WIN32) && defined(CMAKE_BUILD_WITH_CMAKE)
@@ -204,6 +204,7 @@ int main(int ac, char const* const* av)
   cmSystemTools::EnableMSVCDebugHook();
   cmSystemTools::InitializeLibUV();
   cmSystemTools::FindCMakeResources(av[0]);
+  cmSystemTools::SetRunCommandHideConsole(true);
   if (ac > 1) {
     if (strcmp(av[1], "--build") == 0) {
       return do_build(ac, av);
@@ -225,6 +226,15 @@ int main(int ac, char const* const* av)
   uv_loop_close(uv_default_loop());
   return ret;
 }
+
+#ifndef CMAKE_DISABLE_MAIN
+
+int main(int ac, char const* const* av)
+{
+	return cmake_main(ac, av);
+}
+
+#endif
 
 int do_cmake(int ac, char const* const* av)
 {
