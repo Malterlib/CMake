@@ -392,7 +392,19 @@ int do_cmake(int ac, char const* const* av)
     cmakemainProgressCallback(msg, prog, &cm);
   });
 
+#ifdef CMake_ENABLE_DEBUGGER
+  int res;
+  try {
+    res = cm.Run(parsedArgs, view_only);
+  } catch (cmSystemTools::ExitException const& exitException) {
+    // cmSystemTools::Exit unwinds to cmake_main, past the returns below that
+    // report the exit to the debugger, which would wait for its client
+    cm.StopDebuggerIfNeeded(exitException.Code);
+    throw;
+  }
+#else
   int res = cm.Run(parsedArgs, view_only);
+#endif
   if (list_cached || list_all_cached) {
     std::cout << "-- Cache values" << std::endl;
     std::vector<std::string> keys = cm.GetState()->GetCacheEntryKeys();
@@ -1227,8 +1239,14 @@ int do_open(int ac, char const* const* av)
 }
 } // namespace
 
-int main(int ac, char const* const* av)
-{
+// The arguments are UTF-8, as an executable that embeds cmake passes its own
+// arguments
+int cmake_main(int ac, char const* const* av)
+try {
+  cmSystemTools::ExitExceptionScope exitExceptionScope;
+#ifdef CMAKE_DISABLE_MAIN
+  cmSystemTools::AbortOnExit abortOnExit;
+#endif
 #ifndef CMAKE_BOOTSTRAP
   std::chrono::system_clock::time_point wall_start_time =
     std::chrono::system_clock::now();
@@ -1236,13 +1254,9 @@ int main(int ac, char const* const* av)
 
   cm::optional<cm::StdIo::Console> console = cm::StdIo::Console();
 
-  cmsys::Encoding::CommandLineArguments args =
-    cmsys::Encoding::CommandLineArguments::Main(ac, av);
-  ac = args.argc();
-  av = args.argv();
-
   cmSystemTools::InitializeLibUV();
   cmSystemTools::FindCMakeResources(av[0]);
+  cmSystemTools::SetRunCommandHideConsole(true);
   if (ac > 1) {
     if (strcmp(av[1], "--build") == 0) {
       return do_build(ac, av);
@@ -1276,4 +1290,19 @@ int main(int ac, char const* const* av)
                                  std::chrono::system_clock::now());
 #endif
   return ret;
+} catch (cmSystemTools::ExitException const& exitException) {
+  return exitException.Code;
 }
+
+#ifndef CMAKE_DISABLE_MAIN
+
+int main(int ac, char const* const* av)
+{
+  // On Windows, the arguments in UTF-8 come from the command line of the
+  // process
+  cmsys::Encoding::CommandLineArguments args =
+    cmsys::Encoding::CommandLineArguments::Main(ac, av);
+  return cmake_main(args.argc(), args.argv());
+}
+
+#endif

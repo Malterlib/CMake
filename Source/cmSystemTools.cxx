@@ -86,6 +86,7 @@
 #include <cerrno>
 #include <cstdint>
 #include <cstdio>
+#include <atomic>
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
@@ -3211,6 +3212,54 @@ void cmSystemTools::FindCMakeResources(char const* argv0)
 std::string const& cmSystemTools::GetCMakeCommand()
 {
   return cmSystemToolsCMakeCommand;
+}
+
+namespace {
+#ifdef CM_HAVE_THREAD_LOCAL
+thread_local
+#endif
+  int cmSystemToolsExitExceptionScopes = 0;
+
+std::atomic<int> cmSystemToolsAbortOnExitCount{ 0 };
+
+void cmSystemToolsAbortOnExit()
+{
+  if (cmSystemToolsAbortOnExitCount.load() > 0) {
+    std::abort();
+  }
+}
+}
+
+cmSystemTools::ExitExceptionScope::ExitExceptionScope()
+{
+  ++cmSystemToolsExitExceptionScopes;
+}
+
+cmSystemTools::ExitExceptionScope::~ExitExceptionScope()
+{
+  --cmSystemToolsExitExceptionScopes;
+}
+
+void cmSystemTools::Exit(int code)
+{
+  if (cmSystemToolsExitExceptionScopes > 0) {
+    throw ExitException{ code };
+  }
+  std::exit(code);
+}
+
+cmSystemTools::AbortOnExit::AbortOnExit()
+{
+  // Registered as late as the first use, so that it runs before the exit
+  // handlers of the executable
+  static bool const registered = std::atexit(&cmSystemToolsAbortOnExit) == 0;
+  static_cast<void>(registered);
+  ++cmSystemToolsAbortOnExitCount;
+}
+
+cmSystemTools::AbortOnExit::~AbortOnExit()
+{
+  --cmSystemToolsAbortOnExitCount;
 }
 
 std::string const& cmSystemTools::GetCTestCommand()
