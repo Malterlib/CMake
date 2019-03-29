@@ -285,6 +285,10 @@ set(SRCS
   cmFileCopier.h
   cmFileInstaller.cxx
   cmFileInstaller.h
+  cmExtraMalterlibGenerator.cxx
+  cmExtraMalterlibGenerator.h
+  cmMalterlibRegistry.cxx
+  cmMalterlibRegistry.h
   cmFileLock.cxx
   cmFileLock.h
   cmFileLockPool.cxx

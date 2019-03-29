@@ -1,6 +1,13 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
    file Copyright.txt or https://cmake.org/licensing for details.  */
 
+#ifdef CMAKE_MALTERLIB_EXEFS
+#include <Mib/Core/Core>
+#include <Mib/File/VirtualFSs/MalterlibFS>
+#include <Mib/File/ExeFS>
+#include <Mib/Cryptography/UUID>
+#endif
+
 #if !defined(_WIN32) && !defined(__sun) && !defined(__OpenBSD__)
 // POSIX APIs are needed
 // NOLINTNEXTLINE(bugprone-reserved-identifier)
@@ -2191,7 +2198,75 @@ void cmSystemTools::FindCMakeResources(const char* argv0)
     cmSystemToolsCMClDepsCommand.clear();
   }
 
-#ifndef CMAKE_BOOTSTRAP
+#ifdef CMAKE_MALTERLIB_EXEFS
+  CExeFS ExeFS;
+  if (!fg_OpenExeFS(ExeFS)) {
+    cmSystemToolsCMakeRoot = "Failed to open ExeFS"; 
+    return;
+  }
+
+  cmSystemToolsCMakeCommand = CFile::fs_GetProgramPath();
+
+  try {
+    CUniversallyUniqueIdentifier UUIDNamespace(
+      "{EF53758B-02E4-4DE4-88CC-43513C7F6E2E}");
+    
+    CUniversallyUniqueIdentifier UUID{
+      EUniversallyUniqueIdentifierGenerate_StringHash
+      , UUIDNamespace, CFile::fs_GetProgramPath()};
+    
+    CStr CacheDirectory = CFile::fs_GetUserLocalProgramCacheDirectory();
+    CStr CmakeRoot = fg_Format("{}/{}/CMakeRoot", CacheDirectory, 
+      UUID.f_GetAsString(EUniversallyUniqueIdentifierFormat_AlphaNum));
+    
+    CFile::fs_CreateDirectory(CmakeRoot);
+
+    CFileSystemInterface_VirtualFS MalterlibFS(ExeFS.m_FileSystem);
+    CFileSystemInterface_Disk DiskFS;
+    
+    auto SourceWriteTime = MalterlibFS.f_GetWriteTime("");
+    CTimeConvert::fs_RoundTimeToSecondDown(SourceWriteTime);
+    auto WriteTime = DiskFS.f_GetWriteTime(CmakeRoot);
+    CTimeConvert::fs_RoundTimeToSecondDown(WriteTime);
+    
+    do {
+      if (SourceWriteTime != WriteTime) {
+        CClock Clock{true};
+        CLockFile LockFile{CmakeRoot + "/Update.lock"};
+        switch (LockFile.f_Lock(100.0))
+        {
+        case CLockFile::ELockResult_Locked:
+            break;
+        case CLockFile::ELockResult_DoesNotExist: 
+          DMibError("Lock file does not exists");
+        case CLockFile::ELockResult_NoAccess: 
+          DMibError("No access to lock file");
+        case CLockFile::ELockResult_TimedOut: 
+          DMibError("Timed out locking update lock");
+        default:
+          DMibError("Unknown error locking lock file");
+        }
+        
+        WriteTime = DiskFS.f_GetWriteTime(CmakeRoot);
+        CTimeConvert::fs_RoundTimeToSecondDown(WriteTime);
+        if (SourceWriteTime == WriteTime)
+          break;
+        
+        MalterlibFS.f_CopyFilesWithAttribs("*", DiskFS, CmakeRoot);
+        DiskFS.f_SetWriteTime(CmakeRoot, SourceWriteTime);
+        cmSystemTools::Message(fg_Format(
+          "-- Update of CMakeRoot at '{}' from ExeFS took {fe1} s", 
+          CmakeRoot, Clock.f_GetTime()).f_GetStr());
+      }
+    } while (false);
+    
+    cmSystemToolsCMakeRoot = CmakeRoot.f_GetStr();
+  } catch (NException::CException const &_Error) {
+    cmSystemToolsCMakeRoot = ("Failed to extract ExeFS: " + 
+      _Error.f_GetErrorStr()).f_GetStr();
+    return;
+  }
+#elif !defined(CMAKE_BOOTSTRAP)
   // Install tree has
   // - "<prefix><CMAKE_BIN_DIR>/cmake"
   // - "<prefix><CMAKE_DATA_DIR>"
