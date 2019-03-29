@@ -37,6 +37,12 @@ struct cmGeneratorExpressionEvaluator;
  * writes strings into the build system.  They have knowledge of the
  * build configuration which is not available at configure time.
  */
+// While the Malterlib generator evaluates its commands, the directories of the files of targets, as of $<TARGET_FILE_DIR>, end
+// with ".malterlib-file-dir-<Index>", where this has the file at the index. The generator maps them to the directories of the
+// files of its targets, which the directory alone doesn't tell, as targets share directories. The marker is in the last
+// component of the directory, so that a .. after it leaves the directory as it does in CMake.
+extern std::vector<std::string>* cmMalterlibTargetDirectories;
+
 class cmGeneratorExpression
 {
 public:

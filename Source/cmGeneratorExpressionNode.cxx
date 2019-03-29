@@ -5861,11 +5861,19 @@ struct TargetFilesystemArtifactResultGetter<ArtifactNameTag>
   }
 };
 
+std::vector<std::string>* cmMalterlibTargetDirectories = nullptr;
+
 template <>
 struct TargetFilesystemArtifactResultGetter<ArtifactDirTag>
 {
   static std::string Get(std::string const& result)
   {
+    if (cmMalterlibTargetDirectories) {
+      cmMalterlibTargetDirectories->push_back(result);
+      return cmStrCat(cmSystemTools::GetFilenamePath(result),
+                      ".malterlib-file-dir-",
+                      cmMalterlibTargetDirectories->size() - 1);
+    }
     return cmSystemTools::GetFilenamePath(result);
   }
 };

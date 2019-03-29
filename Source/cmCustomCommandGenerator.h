@@ -74,4 +74,12 @@ public:
   std::string const& GetCommandConfig() const { return this->CommandConfig; }
 
   std::string StoreContentToFile(std::string const& content) const;
+
+  // Takes the values of a generator of the same command whose directories of targets end with the markers of the Malterlib
+  // generator (cmMalterlibTargetDirectories), where a value is the same as this one without them, so not where an enclosing
+  // generator expression computes something else from a directory with a marker
+  void TakeMalterlibMarkedValues(
+    cmCustomCommandGenerator&& marked,
+    std::function<bool(std::string const& marked, std::string const& plain)> const&
+      fSame);
 };

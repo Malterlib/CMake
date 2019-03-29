@@ -34,6 +34,7 @@
 #include "cmLocalGenerator.h"
 #include "cmMakefile.h"
 #include "cmMessageType.h"
+#include "cmMessenger.h"
 #include "cmPolicies.h"
 #include "cmRange.h"
 #include "cmSourceFile.h"
@@ -528,12 +529,59 @@ cm::optional<cmLinkItem> cmGeneratorTarget::LookupLinkItem(
   return maybeItem;
 }
 
+namespace {
+// For the Malterlib generator: the items of the value of an entry of a link
+// interface, split at the semicolons that cmList splits its evaluated value
+// at, those outside of square brackets that aren't escaped, which are also
+// outside of generator expressions. The brackets in generator expressions
+// aren't in the evaluated value.
+std::vector<std::string> SplitMalterlibEntryItems(std::string const& value)
+{
+  std::vector<std::string> items;
+  std::string item;
+  int genexDepth = 0;
+  int bracketDepth = 0;
+  for (std::string::size_type i = 0; i < value.size(); ++i) {
+    char const c = value[i];
+    if (c == '$' && i + 1 < value.size() && value[i + 1] == '<') {
+      ++genexDepth;
+      item += "$<";
+      ++i;
+      continue;
+    }
+    if (c == '>' && genexDepth > 0) {
+      --genexDepth;
+    } else if (c == '\\' && i + 1 < value.size()) {
+      item += c;
+      item += value[++i];
+      continue;
+    } else if (c == '[' && genexDepth == 0) {
+      ++bracketDepth;
+    } else if (c == ']' && genexDepth == 0 && bracketDepth > 0) {
+      --bracketDepth;
+    } else if (c == ';' && genexDepth == 0 && bracketDepth == 0) {
+      if (!item.empty()) {
+        items.push_back(std::move(item));
+      }
+      item.clear();
+      continue;
+    }
+    item += c;
+  }
+  if (!item.empty()) {
+    items.push_back(std::move(item));
+  }
+  return items;
+}
+}
+
 void cmGeneratorTarget::ExpandLinkItems(std::string const& prop,
                                         cmBTStringRange entries,
                                         std::string const& config,
                                         cmGeneratorTarget const* headTarget,
                                         UseTo usage, LinkInterfaceField field,
-                                        cmLinkInterface& iface) const
+                                        cmLinkInterface& iface,
+                                        bool malterlibUnconditional) const
 {
   if (entries.empty()) {
     return;
@@ -564,45 +612,109 @@ void cmGeneratorTarget::ExpandLinkItems(std::string const& prop,
                              entry.Backtrace);
     std::unique_ptr<cmCompiledGeneratorExpression> cge = ge.Parse(entry.Value);
     cge->SetEvaluateForBuildsystem(true);
-    cmList libs{ cge->Evaluate(context, &dagChecker, headTarget, this) };
+    std::string const value = malterlibUnconditional
+      ? std::string()
+      : cge->Evaluate(context, &dagChecker, headTarget, this);
+
+    // For the Malterlib generator, which needs to know of each item whether
+    // it depends on the head target. For the items that every head target
+    // gets, the items are evaluated one at a time, quietly, as an item can
+    // fail for a head target that it doesn't expect, which would take the
+    // other items with it. Otherwise an entry of several items that depends
+    // on the head target is evaluated an item at a time as well, quietly, as
+    // the whole entry reported its errors, and the items are used when they
+    // give what the whole entry gives.
+    struct EvaluatedItems
+    {
+      std::string Value;
+      bool HeadSensitive;
+    };
+    std::vector<EvaluatedItems> evaluatedItems;
+    if (malterlibUnconditional) {
+      std::vector<std::string> const entryItems =
+        SplitMalterlibEntryItems(entry.Value);
+      for (std::string const& entryItem : entryItems) {
+        std::unique_ptr<cmCompiledGeneratorExpression> itemCge =
+          ge.Parse(entryItem);
+        itemCge->SetEvaluateForBuildsystem(true);
+        itemCge->SetQuiet(true);
+        // An item that fails gives nothing
+        std::string itemValue =
+          itemCge->Evaluate(context, &dagChecker, headTarget, this);
+        evaluatedItems.push_back(
+          { std::move(itemValue), itemCge->GetHadHeadSensitiveCondition() });
+      }
+    } else if (cge->GetHadHeadSensitiveCondition()) {
+      std::vector<std::string> const entryItems =
+        SplitMalterlibEntryItems(entry.Value);
+      if (entryItems.size() > 1) {
+        cmList itemsValue;
+        for (std::string const& entryItem : entryItems) {
+          std::unique_ptr<cmCompiledGeneratorExpression> itemCge =
+            ge.Parse(entryItem);
+          itemCge->SetEvaluateForBuildsystem(true);
+          itemCge->SetQuiet(true);
+          std::string itemValue =
+            itemCge->Evaluate(context, &dagChecker, headTarget, this);
+          itemsValue.append(itemValue);
+          evaluatedItems.push_back(
+            { std::move(itemValue), itemCge->GetHadHeadSensitiveCondition() });
+        }
+        cmList const wholeValue{ value };
+        if (!std::equal(itemsValue.begin(), itemsValue.end(),
+                        wholeValue.begin(), wholeValue.end())) {
+          evaluatedItems.clear();
+        }
+      }
+    }
+    if (evaluatedItems.empty() && !malterlibUnconditional) {
+      evaluatedItems.push_back({ value, cge->GetHadHeadSensitiveCondition() });
+    }
 
     auto linkFeature = cmLinkItem::DEFAULT;
-    for (auto const& lib : libs) {
-      if (auto maybeLinkFeature = ParseLinkFeature(lib)) {
-        linkFeature = std::move(*maybeLinkFeature);
+    for (EvaluatedItems const& evaluated : evaluatedItems) {
+      bool const headSensitive = evaluated.HeadSensitive;
+      if (malterlibUnconditional && headSensitive) {
         continue;
       }
-
-      if (cm::optional<cmLinkItem> maybeItem = this->LookupLinkItem(
-            lib, cge->GetBacktrace(), linkFeature, &scope,
-            field == LinkInterfaceField::Libraries ? LookupSelf::No
-                                                   : LookupSelf::Yes)) {
-        cmLinkItem item = std::move(*maybeItem);
-
-        if (field == LinkInterfaceField::HeadInclude) {
-          item.InterfaceDirectFrom = this;
-          iface.HeadInclude.emplace_back(std::move(item));
+      for (auto const& lib : cmList{ evaluated.Value }) {
+        if (auto maybeLinkFeature = ParseLinkFeature(lib)) {
+          linkFeature = std::move(*maybeLinkFeature);
           continue;
         }
-        if (field == LinkInterfaceField::HeadExclude) {
-          iface.HeadExclude.emplace_back(std::move(item));
-          continue;
-        }
-        if (!item.Target) {
-          // Report explicitly linked object files separately.
-          std::string const& maybeObj = item.AsStr();
-          if (cmSystemTools::FileIsFullPath(maybeObj)) {
-            cmSourceFile const* sf =
-              mf->GetSource(maybeObj, cmSourceFileLocationKind::Known);
-            if (sf && sf->GetPropertyAsBool("EXTERNAL_OBJECT")) {
-              item.ObjectSource = sf;
-              iface.Objects.emplace_back(std::move(item));
-              continue;
+
+        if (cm::optional<cmLinkItem> maybeItem = this->LookupLinkItem(
+              lib, cge->GetBacktrace(), linkFeature, &scope,
+              field == LinkInterfaceField::Libraries ? LookupSelf::No
+                                                     : LookupSelf::Yes)) {
+          cmLinkItem item = std::move(*maybeItem);
+          item.HeadSensitive = headSensitive;
+
+          if (field == LinkInterfaceField::HeadInclude) {
+            item.InterfaceDirectFrom = this;
+            iface.HeadInclude.emplace_back(std::move(item));
+            continue;
+          }
+          if (field == LinkInterfaceField::HeadExclude) {
+            iface.HeadExclude.emplace_back(std::move(item));
+            continue;
+          }
+          if (!item.Target) {
+            // Report explicitly linked object files separately.
+            std::string const& maybeObj = item.AsStr();
+            if (cmSystemTools::FileIsFullPath(maybeObj)) {
+              cmSourceFile const* sf =
+                mf->GetSource(maybeObj, cmSourceFileLocationKind::Known);
+              if (sf && sf->GetPropertyAsBool("EXTERNAL_OBJECT")) {
+                item.ObjectSource = sf;
+                iface.Objects.emplace_back(std::move(item));
+                continue;
+              }
             }
           }
-        }
 
-        iface.Libraries.emplace_back(std::move(item));
+          iface.Libraries.emplace_back(std::move(item));
+        }
       }
     }
     if (cge->GetHadHeadSensitiveCondition()) {
@@ -729,6 +841,32 @@ void cmGeneratorTarget::ComputeLinkInterface(std::string const& config,
       sscanf(reps->c_str(), "%u", &iface.Multiplicity);
     }
   }
+}
+
+cmLinkInterfaceLibraries
+cmGeneratorTarget::GetMalterlibUnconditionalLinkInterface(
+  std::string const& config, cmGeneratorTarget const* headTarget) const
+{
+  cmLinkInterface iface;
+  // Only the targets that use the interface report what is wrong in it
+  cmMessenger::MalterlibSuppressScope suppressMessages(
+    *this->LocalGenerator->GetCMakeInstance()->GetMessenger());
+  // An imported target has its link interface in the properties that
+  // ComputeImportInfo reads, also IMPORTED_LINK_INTERFACE_LIBRARIES
+  if (this->IsImported()) {
+    if (cmGeneratorTarget::ImportInfo const* info =
+          this->GetImportInfo(config)) {
+      this->ExpandLinkItems(info->LibrariesProp, cmMakeRange(info->Libraries),
+                            config, headTarget, UseTo::Link,
+                            LinkInterfaceField::Libraries, iface, true);
+    }
+    return std::move(iface);
+  }
+  this->ExpandLinkItems(kINTERFACE_LINK_LIBRARIES,
+                        this->Target->GetLinkInterfaceEntries(), config,
+                        headTarget, UseTo::Link, LinkInterfaceField::Libraries,
+                        iface, true);
+  return std::move(iface);
 }
 
 cmLinkInterfaceLibraries const* cmGeneratorTarget::GetLinkInterfaceLibraries(

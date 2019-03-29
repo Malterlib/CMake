@@ -20,6 +20,7 @@
 #include "cmEvaluatedTargetProperty.h"
 #include "cmGenExContext.h"
 #include "cmGeneratorExpressionDAGChecker.h"
+#include "cmGlobalGenerator.h"
 #include "cmList.h"
 #include "cmListFileCache.h"
 #include "cmLocalGenerator.h"
@@ -391,10 +392,12 @@ std::vector<BT<std::string>> cmGeneratorTarget::GetCompileDefinitions(
   AddInterfaceEntries(this, "INTERFACE_COMPILE_DEFINITIONS", context,
                       &dagChecker, entries, cm::IncludeRuntimeInterface::Yes);
 
-  // Add the character set definition
+  // Add the character set definition. Malterlib sets the character set of
+  // the targets that it imports itself, and defines its macros.
   MsvcCharSetInfo charSetInfo = GetMsvcCharSetInfo(*this, language, entries);
   if (charSetInfo.IsNeedToAddDefine &&
-      this->GetPolicyStatusCMP0204() == cmPolicies::NEW) {
+      this->GetPolicyStatusCMP0204() == cmPolicies::NEW &&
+      this->GlobalGenerator->GetExtraGeneratorName() != "Malterlib") {
     cm::string_view define;
     switch (charSetInfo.CharSet) {
       case MsvcCharSet::None:

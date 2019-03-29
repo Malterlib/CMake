@@ -178,6 +178,9 @@ void PrintCallStack(std::ostream& out, cmListFileBacktrace bt,
 void cmMessenger::IssueMessage(MessageType t, std::string const& text,
                                cmListFileBacktrace const& backtrace)
 {
+  if (this->MalterlibSuppressDepth > 0) {
+    return;
+  }
   this->DisplayMessage(t, cmDiagnostics::CMD_NONE, text, backtrace);
 }
 
@@ -186,6 +189,9 @@ void cmMessenger::IssueDiagnostic(cmDiagnosticCategory category,
                                   cmStateSnapshot const& fallbackContext,
                                   cmDiagnosticContext const& context)
 {
+  if (this->MalterlibSuppressDepth > 0) {
+    return;
+  }
   cmDiagnosticAction const action = [&] {
     if (context.HasState) {
       cmDiagnosticAction const ca = context.DiagnosticState[category];

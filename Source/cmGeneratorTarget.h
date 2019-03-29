@@ -305,6 +305,15 @@ public:
     std::string const& config, cmGeneratorTarget const* headTarget,
     UseTo usage) const;
 
+  /** For the Malterlib generator: the items of the entries of
+      INTERFACE_LINK_LIBRARIES that don't depend on the target that links
+      (head sensitive), which every target that links this one gets.  The
+      entries are evaluated for headTarget quietly, as CMake only evaluates
+      them for the targets that link this one, which they can expect
+      something of.  */
+  cmLinkInterfaceLibraries GetMalterlibUnconditionalLinkInterface(
+    std::string const& config, cmGeneratorTarget const* headTarget) const;
+
   void ComputeLinkInterfaceLibraries(std::string const& config,
                                      cmOptionalLinkInterface& iface,
                                      cmGeneratorTarget const* head,
@@ -1435,7 +1444,8 @@ private:
   void ExpandLinkItems(std::string const& prop, cmBTStringRange entries,
                        std::string const& config,
                        cmGeneratorTarget const* headTarget, UseTo usage,
-                       LinkInterfaceField field, cmLinkInterface& iface) const;
+                       LinkInterfaceField field, cmLinkInterface& iface,
+                       bool malterlibUnconditional = false) const;
 
   struct LookupLinkItemScope
   {

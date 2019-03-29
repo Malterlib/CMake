@@ -276,6 +276,36 @@ cmCustomCommandGenerator::cmCustomCommandGenerator(
   this->FillEmulatorsWithArguments();
 }
 
+void cmCustomCommandGenerator::TakeMalterlibMarkedValues(
+  cmCustomCommandGenerator&& marked,
+  std::function<bool(std::string const& marked, std::string const& plain)> const&
+    fSame)
+{
+  auto fTake = [&](std::string& plain, std::string& markedValue) {
+    if (fSame(markedValue, plain)) {
+      plain = std::move(markedValue);
+    }
+  };
+  auto fTakeList = [&](std::vector<std::string>& plain,
+                       std::vector<std::string>& markedValues) {
+    if (plain.size() != markedValues.size()) {
+      return;
+    }
+    for (std::size_t i = 0; i < plain.size(); ++i) {
+      fTake(plain[i], markedValues[i]);
+    }
+  };
+  if (this->CommandLines.size() == marked.CommandLines.size()) {
+    for (std::size_t i = 0; i < this->CommandLines.size(); ++i) {
+      fTakeList(this->CommandLines[i], marked.CommandLines[i]);
+    }
+  }
+  fTakeList(this->Outputs, marked.Outputs);
+  fTakeList(this->Byproducts, marked.Byproducts);
+  fTakeList(this->Depends, marked.Depends);
+  fTake(this->WorkingDirectory, marked.WorkingDirectory);
+}
+
 unsigned int cmCustomCommandGenerator::GetNumberOfCommands() const
 {
   return static_cast<unsigned int>(this->CommandLines.size());
