@@ -81,7 +81,9 @@ std::string const& cmCompiledGeneratorExpression::Evaluate(
   cmGeneratorTarget const* headTarget,
   cmGeneratorTarget const* currentTarget) const
 {
-  cm::GenEx::Evaluation eval(context, this->Quiet, headTarget,
+  cm::GenEx::Evaluation eval(context,
+                             this->Quiet || cmMalterlibTargetDirectories,
+                             headTarget,
                              currentTarget ? currentTarget : headTarget,
                              this->EvaluateForBuildsystem, this->Backtrace);
 
@@ -97,6 +99,9 @@ std::string const& cmCompiledGeneratorExpression::Evaluate(
     this->SeenTargetProperties.insert(eval.SeenTargetProperties.cbegin(),
                                       eval.SeenTargetProperties.cend());
     if (eval.HadError) {
+      if (cmMalterlibTargetDirectories) {
+        cmMalterlibMarkedEvaluationFailed = true;
+      }
       this->Output.clear();
       break;
     }

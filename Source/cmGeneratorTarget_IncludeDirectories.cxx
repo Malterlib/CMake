@@ -17,6 +17,7 @@
 
 #include "cmEvaluatedTargetProperty.h"
 #include "cmGenExContext.h"
+#include "cmGeneratorExpression.h"
 #include "cmGeneratorExpressionDAGChecker.h"
 #include "cmGlobalGenerator.h"
 #include "cmLinkItem.h"
@@ -217,7 +218,8 @@ std::vector<BT<std::string>> cmGeneratorTarget::GetIncludeDirectories(
   std::string const& config, std::string const& lang) const
 {
   ConfigAndLanguage cacheKey(config, lang);
-  {
+  // Not while the Malterlib generator evaluates with markers
+  if (!cmMalterlibTargetDirectories) {
     auto it = this->IncludeDirectoriesCache.find(cacheKey);
     if (it != this->IncludeDirectoriesCache.end()) {
       return it->second;
@@ -303,6 +305,8 @@ std::vector<BT<std::string>> cmGeneratorTarget::GetIncludeDirectories(
     }
   }
 
-  this->IncludeDirectoriesCache.emplace(cacheKey, includes);
+  if (!cmMalterlibTargetDirectories) {
+    this->IncludeDirectoriesCache.emplace(cacheKey, includes);
+  }
   return includes;
 }

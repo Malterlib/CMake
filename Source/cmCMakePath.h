@@ -494,13 +494,9 @@ public:
   cmCMakePath GetParentPath() const { return this->Path.parent_path(); }
 
   // Generation
-  cmCMakePath Normal() const
-  {
-    auto path = this->Path.lexically_normal();
-    // filesystem::path:lexically_normal use preferred_separator ('\') on
-    // Windows) so convert back to '/'
-    return path.generic_string();
-  }
+  // A .. after a marker of the Malterlib generator stays, as in
+  // cmSystemTools::CollapseFullPath
+  cmCMakePath Normal() const;
 
   cmCMakePath Relative(cmCMakePath const& base) const
   {

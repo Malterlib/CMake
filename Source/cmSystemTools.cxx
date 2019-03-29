@@ -1,6 +1,13 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
    file LICENSE.rst or https://cmake.org/licensing for details.  */
 
+#ifdef CMAKE_MALTERLIB_EXEFS
+#include <Mib/Core/Core>
+#include <Mib/File/VirtualFSs/MalterlibFS>
+#include <Mib/File/ExeFS>
+#include <Mib/Cryptography/UUID>
+#endif
+
 #if !defined(_WIN32) && !defined(__sun) && !defined(__OpenBSD__)
 // POSIX APIs are needed
 // NOLINTNEXTLINE(bugprone-reserved-identifier)
@@ -1853,6 +1860,119 @@ bool cmSystemTools::SimpleGlob(std::string const& glob,
     }
   }
   return res;
+}
+
+extern std::vector<std::string> const* cmMalterlibMarkedDirectories;
+
+std::string::size_type cmSystemTools::MalterlibMarkerEnd(
+  std::string const& path)
+{
+  static char const prefix[] = ".malterlib-file-dir-";
+  if (!cmMalterlibMarkedDirectories) {
+    return std::string::npos;
+  }
+  for (std::string::size_type iMarker = path.find(prefix);
+       iMarker != std::string::npos; iMarker = path.find(prefix, iMarker + 1)) {
+    std::string::size_type const iIndex = iMarker + sizeof(prefix) - 1;
+    std::string::size_type iEnd = iIndex;
+    std::size_t index = 0;
+    while (iEnd < path.size() && path[iEnd] >= '0' && path[iEnd] <= '9') {
+      index = index * 10 + std::size_t(path[iEnd++] - '0');
+    }
+    if (iEnd != iIndex && index < cmMalterlibMarkedDirectories->size()) {
+      return iEnd;
+    }
+  }
+  return std::string::npos;
+}
+
+std::string cmSystemTools::AppendMalterlibMarkedRest(
+  std::string collapsed, std::string const& rest, bool keepTrailingSeparator)
+{
+#if defined(_WIN32)
+  char const* const separators = "/\\";
+#else
+  char const* const separators = "/";
+#endif
+  std::vector<std::string> segments;
+  // As lexically_normal: a path ends with a separator after a . or a .., as
+  // after a separator. A .. that stays after the marker ends it with one too,
+  // as lexically_normal ends the path that collapses it without the marker.
+  bool trailingSeparator = false;
+  for (std::string::size_type iSegment = 0; iSegment < rest.size();) {
+    std::string::size_type iNext = rest.find_first_of(separators, iSegment);
+    if (iNext == std::string::npos) {
+      iNext = rest.size();
+    }
+    std::string segment = rest.substr(iSegment, iNext - iSegment);
+    if (segment == "..") {
+      trailingSeparator = true;
+      if (!segments.empty() && segments.back() != "..") {
+        segments.pop_back();
+      } else {
+        segments.push_back(std::move(segment));
+      }
+    } else if (segment == ".") {
+      trailingSeparator = true;
+    } else if (!segment.empty()) {
+      segments.push_back(std::move(segment));
+      trailingSeparator = false;
+    }
+    iSegment = iNext + 1;
+  }
+  if (!rest.empty() && rest.find_last_of(separators) == rest.size() - 1) {
+    trailingSeparator = true;
+  }
+  for (std::string const& segment : segments) {
+    collapsed += '/';
+    collapsed += segment;
+  }
+  if (keepTrailingSeparator && trailingSeparator) {
+    collapsed += '/';
+  }
+  return collapsed;
+}
+
+namespace {
+std::string CollapseMarkedFullPath(std::string const& path,
+                                   std::string const* base)
+{
+  if (cmMalterlibMarkedDirectories) {
+    std::string full = path;
+    if (base && !cmSystemTools::FileIsFullPath(full)) {
+      full = cmStrCat(*base, '/', path);
+    }
+    std::string::size_type const iEnd = cmSystemTools::MalterlibMarkerEnd(full);
+    if (iEnd != std::string::npos && cmSystemTools::FileIsFullPath(full)) {
+      return cmSystemTools::AppendMalterlibMarkedRest(
+        cmsys::SystemTools::CollapseFullPath(full.substr(0, iEnd)),
+        full.substr(iEnd), false);
+    }
+  }
+  return base ? cmsys::SystemTools::CollapseFullPath(path, *base)
+              : cmsys::SystemTools::CollapseFullPath(path);
+}
+}
+
+std::string cmSystemTools::CollapseFullPath(std::string const& in_path)
+{
+  return CollapseMarkedFullPath(in_path, nullptr);
+}
+
+std::string cmSystemTools::CollapseFullPath(std::string const& in_path,
+                                            char const* in_base)
+{
+  if (!in_base) {
+    return CollapseMarkedFullPath(in_path, nullptr);
+  }
+  std::string const base = in_base;
+  return CollapseMarkedFullPath(in_path, &base);
+}
+
+std::string cmSystemTools::CollapseFullPath(std::string const& in_path,
+                                            std::string const& in_base)
+{
+  return CollapseMarkedFullPath(in_path, &in_base);
 }
 
 std::string cmSystemTools::ConvertToOutputPath(std::string const& path)

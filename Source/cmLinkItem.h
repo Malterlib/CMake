@@ -44,6 +44,9 @@ public:
   // When the item was the result of a target's INTERFACE_LINK_LIBRARIES_DIRECT
   // property, that originating target is provided here
   cmGeneratorTarget const* InterfaceDirectFrom = nullptr;
+  // For the Malterlib generator: whether the entry of a link interface that
+  // the item is of depends on the target that links (head sensitive)
+  bool HeadSensitive = false;
   cmListFileBacktrace Backtrace;
   friend bool operator<(cmLinkItem const& l, cmLinkItem const& r);
   friend bool operator==(cmLinkItem const& l, cmLinkItem const& r);

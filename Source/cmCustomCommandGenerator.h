@@ -9,6 +9,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <functional>
 
 #include <cm/optional>
 
@@ -59,6 +60,10 @@ public:
   unsigned int GetNumberOfCommands() const;
   std::string GetCommand(unsigned int c) const;
   void AppendArguments(unsigned int c, std::string& cmd) const;
+  void AppendArguments(unsigned int c, std::string& cmd
+		, std::function<std::string (std::string const &_String, bool &o_bEscape)> const &transformParam
+		, std::function<std::string (std::string const &_String)> const &escapeParam
+	) const;
   cm::optional<std::string> GetComment() const;
   std::string GetWorkingDirectory() const;
   std::vector<std::string> const& GetOutputs() const;
@@ -74,4 +79,12 @@ public:
   std::string const& GetCommandConfig() const { return this->CommandConfig; }
 
   std::string StoreContentToFile(std::string const& content) const;
+
+  // Takes the values of a generator of the same command whose directories of targets end with the markers of the Malterlib
+  // generator (cmMalterlibTargetDirectories), where a value is the same as this one without them, so not where an enclosing
+  // generator expression computes something else from a directory with a marker
+  void TakeMalterlibMarkedValues(
+    cmCustomCommandGenerator&& marked,
+    std::function<bool(std::string const& marked, std::string const& plain)> const&
+      fSame);
 };

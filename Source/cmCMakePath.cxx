@@ -8,6 +8,7 @@
 #include <string>
 
 #include "cmStringAlgorithms.h"
+#include "cmSystemTools.h"
 
 #if defined(_WIN32)
 #  include <cstdlib>
@@ -38,6 +39,23 @@ cmCMakePath& cmCMakePath::ReplaceWideExtension(cm::string_view extension)
   }
   this->Path.replace_filename(file);
   return *this;
+}
+
+cmCMakePath cmCMakePath::Normal() const
+{
+  std::string const path = this->Path.generic_string();
+  std::string::size_type const iEnd = cmSystemTools::MalterlibMarkerEnd(path);
+  if (iEnd != std::string::npos) {
+    return cmSystemTools::AppendMalterlibMarkedRest(
+      cm::filesystem::path(path.substr(0, iEnd))
+        .lexically_normal()
+        .generic_string(),
+      path.substr(iEnd), true);
+  }
+  auto normal = this->Path.lexically_normal();
+  // filesystem::path:lexically_normal use preferred_separator ('\') on
+  // Windows) so convert back to '/'
+  return normal.generic_string();
 }
 
 cmCMakePath cmCMakePath::GetWideExtension() const

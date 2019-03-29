@@ -19,7 +19,9 @@
 
 #include "cmEvaluatedTargetProperty.h"
 #include "cmGenExContext.h"
+#include "cmGeneratorExpression.h"
 #include "cmGeneratorExpressionDAGChecker.h"
+#include "cmGlobalGenerator.h"
 #include "cmList.h"
 #include "cmListFileCache.h"
 #include "cmLocalGenerator.h"
@@ -267,7 +269,8 @@ std::vector<BT<std::string>> cmGeneratorTarget::GetCompileOptions(
   std::string const& config, std::string const& language) const
 {
   ConfigAndLanguage cacheKey(config, language);
-  {
+  // Not while the Malterlib generator evaluates with markers
+  if (!cmMalterlibTargetDirectories) {
     auto it = this->CompileOptionsCache.find(cacheKey);
     if (it != this->CompileOptionsCache.end()) {
       return it->second;
@@ -299,7 +302,9 @@ std::vector<BT<std::string>> cmGeneratorTarget::GetCompileOptions(
   processOptions(this, entries, result, uniqueOptions, debugOptions,
                  "compile options", OptionsParse::Shell);
 
-  CompileOptionsCache.emplace(cacheKey, result);
+  if (!cmMalterlibTargetDirectories) {
+    this->CompileOptionsCache.emplace(cacheKey, result);
+  }
   return result;
 }
 
@@ -362,7 +367,8 @@ std::vector<BT<std::string>> cmGeneratorTarget::GetCompileDefinitions(
   std::string const& config, std::string const& language) const
 {
   ConfigAndLanguage cacheKey(config, language);
-  {
+  // Not while the Malterlib generator evaluates with markers
+  if (!cmMalterlibTargetDirectories) {
     auto it = this->CompileDefinitionsCache.find(cacheKey);
     if (it != this->CompileDefinitionsCache.end()) {
       return it->second;
@@ -391,10 +397,12 @@ std::vector<BT<std::string>> cmGeneratorTarget::GetCompileDefinitions(
   AddInterfaceEntries(this, "INTERFACE_COMPILE_DEFINITIONS", context,
                       &dagChecker, entries, cm::IncludeRuntimeInterface::Yes);
 
-  // Add the character set definition
+  // Add the character set definition. Malterlib sets the character set of
+  // the targets that it imports itself, and defines its macros.
   MsvcCharSetInfo charSetInfo = GetMsvcCharSetInfo(*this, language, entries);
   if (charSetInfo.IsNeedToAddDefine &&
-      this->GetPolicyStatusCMP0204() == cmPolicies::NEW) {
+      this->GetPolicyStatusCMP0204() == cmPolicies::NEW &&
+      this->GlobalGenerator->GetExtraGeneratorName() != "Malterlib") {
     cm::string_view define;
     switch (charSetInfo.CharSet) {
       case MsvcCharSet::None:
@@ -422,7 +430,9 @@ std::vector<BT<std::string>> cmGeneratorTarget::GetCompileDefinitions(
   processOptions(this, entries, list, uniqueOptions, debugDefines,
                  "compile definitions", OptionsParse::None);
 
-  this->CompileDefinitionsCache.emplace(cacheKey, list);
+  if (!cmMalterlibTargetDirectories) {
+    this->CompileDefinitionsCache.emplace(cacheKey, list);
+  }
   return list;
 }
 

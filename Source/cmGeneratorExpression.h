@@ -37,6 +37,19 @@ struct cmGeneratorExpressionEvaluator;
  * writes strings into the build system.  They have knowledge of the
  * build configuration which is not available at configure time.
  */
+// While the Malterlib generator evaluates its commands, the directories of the files of targets, as of $<TARGET_FILE_DIR>, end
+// with ".malterlib-file-dir-<Index>", where this has the file at the index. The generator maps them to the directories of the
+// files of its targets, which the directory alone doesn't tell, as targets share directories. The marker is in the last
+// component of the directory, so that a .. after it leaves the directory as it does in CMake.
+extern std::vector<std::string>* cmMalterlibTargetDirectories;
+// The directories of the markers, for as long as the Malterlib generator generates, as it collapses and compares the values of the
+// marked evaluation after it (cmSystemTools::CollapseFullPath)
+extern std::vector<std::string> const* cmMalterlibMarkedDirectories;
+// While cmMalterlibTargetDirectories is set, generator expressions and the messenger report no errors and set this instead, as
+// the markers can make a condition on a directory, as $<PATH:IS_PREFIX,...>, take a branch that the evaluation without them
+// doesn't, and the target and file set caches of the include directories, compile options and definitions are left alone
+extern bool cmMalterlibMarkedEvaluationFailed;
+
 class cmGeneratorExpression
 {
 public:

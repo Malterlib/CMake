@@ -65,7 +65,29 @@ public:
     return this->DisplayedMessages;
   }
 
+  // For the Malterlib generator: while it exists, messages and diagnostics
+  // are dropped, and errors aren't recorded, as for the link interfaces that
+  // it evaluates on top of those that CMake evaluates, of which the targets
+  // that use them report what is wrong.
+  class MalterlibSuppressScope
+  {
+  public:
+    explicit MalterlibSuppressScope(cmMessenger& messenger)
+      : Messenger(messenger)
+    {
+      ++this->Messenger.MalterlibSuppressDepth;
+    }
+    ~MalterlibSuppressScope() { --this->Messenger.MalterlibSuppressDepth; }
+    MalterlibSuppressScope(MalterlibSuppressScope const&) = delete;
+    MalterlibSuppressScope& operator=(MalterlibSuppressScope const&) = delete;
+
+  private:
+    cmMessenger& Messenger;
+  };
+
 private:
+  int MalterlibSuppressDepth = 0;
+
   cm::optional<std::string> TopSource;
 
   std::vector<Message> DisplayedMessages;

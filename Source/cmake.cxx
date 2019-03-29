@@ -134,6 +134,7 @@
 #  include "cmExtraEclipseCDT4Generator.h"
 #  include "cmExtraKateGenerator.h"
 #  include "cmExtraSublimeTextGenerator.h"
+#  include "cmExtraMalterlibGenerator.h"
 
 // NOTE: the __linux__ macro is predefined on Android host too, but
 // main CMakeLists.txt filters out this generator by host name.
@@ -1928,6 +1929,7 @@ void cmake::AddDefaultExtraGenerators()
   this->ExtraGenerators.push_back(cmExtraEclipseCDT4Generator::GetFactory());
   this->ExtraGenerators.push_back(cmExtraKateGenerator::GetFactory());
   this->ExtraGenerators.push_back(cmExtraSublimeTextGenerator::GetFactory());
+  this->ExtraGenerators.push_back(cmExtraMalterlibGenerator::GetFactory());
 #endif
 }
 

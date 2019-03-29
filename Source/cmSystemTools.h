@@ -386,6 +386,26 @@ public:
   static void SetForceUnixPaths(bool v) { s_ForceUnixPaths = v; }
   static bool GetForceUnixPaths() { return s_ForceUnixPaths; }
 
+  // While the Malterlib generator generates (cmMalterlibMarkedDirectories), a
+  // .. after a marker of a directory of a target isn't collapsed: a
+  // path that leaves the directory of a target stays relative to it, as in the
+  // arguments of commands, which aren't collapsed, so that the generator maps
+  // it relative to the directory of the Malterlib target.
+  static std::string CollapseFullPath(std::string const& in_path);
+  static std::string CollapseFullPath(std::string const& in_path,
+                                      char const* in_base);
+  static std::string CollapseFullPath(std::string const& in_path,
+                                      std::string const& in_base);
+  // Where the first marker of a directory of a target ends in a path, or npos
+  // without one or while the Malterlib generator doesn't generate
+  static std::string::size_type MalterlibMarkerEnd(std::string const& path);
+  // The collapsed path up to the end of its marker with the rest of the path,
+  // collapsed but for a .. that leaves the directory, with the separator that
+  // lexically_normal leaves at its end where keepTrailingSeparator is set
+  static std::string AppendMalterlibMarkedRest(std::string collapsed,
+                                               std::string const& rest,
+                                               bool keepTrailingSeparator);
+
   // ConvertToOutputPath use s_ForceUnixPaths
   static std::string ConvertToOutputPath(std::string const& path);
   static void ConvertToOutputSlashes(std::string& path);

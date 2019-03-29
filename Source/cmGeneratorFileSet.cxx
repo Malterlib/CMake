@@ -236,7 +236,8 @@ std::vector<BT<std::string>> cmGeneratorFileSet::GetIncludeDirectories(
   std::string const& config, std::string const& lang) const
 {
   ConfigAndLanguage cacheKey(config, lang);
-  {
+  // Not while the Malterlib generator evaluates with markers
+  if (!cmMalterlibTargetDirectories) {
     auto it = this->IncludeDirectoriesCache.find(cacheKey);
     if (it != this->IncludeDirectoriesCache.end()) {
       return it->second;
@@ -253,7 +254,9 @@ std::vector<BT<std::string>> cmGeneratorFileSet::GetIncludeDirectories(
                                       this->IncludeDirectories);
   auto includes = ProcessIncludes(this->Target, this->GetName(),
                                   "INCLUDE_DIRECTORIES"_s, entries);
-  this->IncludeDirectoriesCache.emplace(cacheKey, includes);
+  if (!cmMalterlibTargetDirectories) {
+    this->IncludeDirectoriesCache.emplace(cacheKey, includes);
+  }
 
   return includes;
 }
@@ -262,7 +265,8 @@ cmGeneratorFileSet::GetInterfaceIncludeDirectories(
   std::string const& config, std::string const& lang) const
 {
   ConfigAndLanguage cacheKey(config, lang);
-  {
+  // Not while the Malterlib generator evaluates with markers
+  if (!cmMalterlibTargetDirectories) {
     auto it = this->InterfaceIncludeDirectoriesCache.find(cacheKey);
     if (it != this->InterfaceIncludeDirectoriesCache.end()) {
       return it->second;
@@ -279,7 +283,9 @@ cmGeneratorFileSet::GetInterfaceIncludeDirectories(
                                       this->InterfaceIncludeDirectories);
   auto includes = ProcessIncludes(this->Target, this->GetName(),
                                   "INTERFACE_INCLUDE_DIRECTORIES"_s, entries);
-  this->InterfaceIncludeDirectoriesCache.emplace(cacheKey, includes);
+  if (!cmMalterlibTargetDirectories) {
+    this->InterfaceIncludeDirectoriesCache.emplace(cacheKey, includes);
+  }
 
   return includes;
 }
@@ -288,7 +294,8 @@ std::vector<BT<std::string>> cmGeneratorFileSet::GetCompileOptions(
   std::string const& config, std::string const& language) const
 {
   ConfigAndLanguage cacheKey(config, language);
-  {
+  // Not while the Malterlib generator evaluates with markers
+  if (!cmMalterlibTargetDirectories) {
     auto it = this->CompileOptionsCache.find(cacheKey);
     if (it != this->CompileOptionsCache.end()) {
       return it->second;
@@ -305,7 +312,9 @@ std::vector<BT<std::string>> cmGeneratorFileSet::GetCompileOptions(
     cm::EvaluateTargetPropertyEntries(this->Target, context, &dagChecker,
                                       this->CompileOptions);
   auto options = ProcessOptions(entries, OptionsParse::Shell);
-  this->CompileOptionsCache.emplace(cacheKey, options);
+  if (!cmMalterlibTargetDirectories) {
+    this->CompileOptionsCache.emplace(cacheKey, options);
+  }
 
   return options;
 }
@@ -313,7 +322,8 @@ std::vector<BT<std::string>> cmGeneratorFileSet::GetInterfaceCompileOptions(
   std::string const& config, std::string const& language) const
 {
   ConfigAndLanguage cacheKey(config, language);
-  {
+  // Not while the Malterlib generator evaluates with markers
+  if (!cmMalterlibTargetDirectories) {
     auto it = this->InterfaceCompileOptionsCache.find(cacheKey);
     if (it != this->InterfaceCompileOptionsCache.end()) {
       return it->second;
@@ -330,7 +340,9 @@ std::vector<BT<std::string>> cmGeneratorFileSet::GetInterfaceCompileOptions(
     cm::EvaluateTargetPropertyEntries(this->Target, context, &dagChecker,
                                       this->InterfaceCompileOptions);
   auto options = ProcessOptions(entries, OptionsParse::Shell);
-  this->InterfaceCompileOptionsCache.emplace(cacheKey, options);
+  if (!cmMalterlibTargetDirectories) {
+    this->InterfaceCompileOptionsCache.emplace(cacheKey, options);
+  }
 
   return options;
 }
@@ -339,7 +351,8 @@ std::vector<BT<std::string>> cmGeneratorFileSet::GetCompileDefinitions(
   std::string const& config, std::string const& language) const
 {
   ConfigAndLanguage cacheKey(config, language);
-  {
+  // Not while the Malterlib generator evaluates with markers
+  if (!cmMalterlibTargetDirectories) {
     auto it = this->CompileDefinitionsCache.find(cacheKey);
     if (it != this->CompileDefinitionsCache.end()) {
       return it->second;
@@ -356,7 +369,9 @@ std::vector<BT<std::string>> cmGeneratorFileSet::GetCompileDefinitions(
     cm::EvaluateTargetPropertyEntries(this->Target, context, &dagChecker,
                                       this->CompileDefinitions);
   auto defines = ProcessOptions(entries);
-  this->CompileDefinitionsCache.emplace(cacheKey, defines);
+  if (!cmMalterlibTargetDirectories) {
+    this->CompileDefinitionsCache.emplace(cacheKey, defines);
+  }
 
   return defines;
 }
@@ -365,7 +380,8 @@ cmGeneratorFileSet::GetInterfaceCompileDefinitions(
   std::string const& config, std::string const& language) const
 {
   ConfigAndLanguage cacheKey(config, language);
-  {
+  // Not while the Malterlib generator evaluates with markers
+  if (!cmMalterlibTargetDirectories) {
     auto it = this->InterfaceCompileDefinitionsCache.find(cacheKey);
     if (it != this->InterfaceCompileDefinitionsCache.end()) {
       return it->second;
@@ -382,7 +398,9 @@ cmGeneratorFileSet::GetInterfaceCompileDefinitions(
     cm::EvaluateTargetPropertyEntries(this->Target, context, &dagChecker,
                                       this->InterfaceCompileDefinitions);
   auto defines = ProcessOptions(entries);
-  this->InterfaceCompileDefinitionsCache.emplace(cacheKey, defines);
+  if (!cmMalterlibTargetDirectories) {
+    this->InterfaceCompileDefinitionsCache.emplace(cacheKey, defines);
+  }
 
   return defines;
 }

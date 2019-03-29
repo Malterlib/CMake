@@ -10,6 +10,7 @@
 #include <cmext/string_view>
 
 #include "cmDocumentationFormatter.h"
+#include "cmGeneratorExpression.h"
 #include "cmMessageMetadata.h"
 #include "cmMessageType.h"
 #include "cmStateSnapshot.h"
@@ -178,6 +179,18 @@ void PrintCallStack(std::ostream& out, cmListFileBacktrace bt,
 void cmMessenger::IssueMessage(MessageType t, std::string const& text,
                                cmListFileBacktrace const& backtrace)
 {
+  if (this->MalterlibSuppressDepth > 0) {
+    return;
+  }
+  // The evaluation of the Malterlib generator with markers in the directories of targets only repeats the messages of the
+  // evaluation without them, or issues those of the markers, as of a directory that doesn't exist. After an error the values of
+  // the evaluation without them are kept.
+  if (cmMalterlibTargetDirectories) {
+    if (t == MessageType::FATAL_ERROR || t == MessageType::INTERNAL_ERROR) {
+      cmMalterlibMarkedEvaluationFailed = true;
+    }
+    return;
+  }
   this->DisplayMessage(t, cmDiagnostics::CMD_NONE, text, backtrace);
 }
 
@@ -186,6 +199,9 @@ void cmMessenger::IssueDiagnostic(cmDiagnosticCategory category,
                                   cmStateSnapshot const& fallbackContext,
                                   cmDiagnosticContext const& context)
 {
+  if (this->MalterlibSuppressDepth > 0) {
+    return;
+  }
   cmDiagnosticAction const action = [&] {
     if (context.HasState) {
       cmDiagnosticAction const ca = context.DiagnosticState[category];
@@ -205,6 +221,15 @@ void cmMessenger::IssueDiagnostic(cmDiagnosticCategory category,
 
     return fallbackContext.GetDiagnostic(category);
   }();
+
+  // As in IssueMessage
+  if (cmMalterlibTargetDirectories) {
+    if (action == cmDiagnostics::FatalError ||
+        action == cmDiagnostics::SendError) {
+      cmMalterlibMarkedEvaluationFailed = true;
+    }
+    return;
+  }
 
   switch (action) {
     case cmDiagnostics::FatalError:
