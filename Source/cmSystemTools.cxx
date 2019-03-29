@@ -1,6 +1,13 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
    file LICENSE.rst or https://cmake.org/licensing for details.  */
 
+#ifdef CMAKE_MALTERLIB_EXEFS
+#include <Mib/Core/Core>
+#include <Mib/File/VirtualFSs/MalterlibFS>
+#include <Mib/File/ExeFS>
+#include <Mib/Cryptography/UUID>
+#endif
+
 #if !defined(_WIN32) && !defined(__sun) && !defined(__OpenBSD__)
 // POSIX APIs are needed
 // NOLINTNEXTLINE(bugprone-reserved-identifier)
