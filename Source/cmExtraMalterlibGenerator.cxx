@@ -569,7 +569,8 @@ void cmExtraMalterlibGenerator::AppendTarget(
 
   auto &outputTarget = registry.addChild("%Target", GetTargetName(target));
   outputTarget.addChild("Property.MalterlibTargetNameType", "Normal");
-  outputTarget.addChild("Target.Group", "External/" + lg->GetProjectName());
+  auto &group = outputTarget.addChild("Target.Group", "External/" + lg->GetProjectName());
+  group.addChild("!!Target.Group", "");
   outputTarget.addChild("Target.Type", GetTargetType(target));
   outputTarget.addChild("Target.BaseName", target->GetName());
 
