@@ -3,6 +3,7 @@
 #include "cmExtraMalterlibGenerator.h"
 #include "cmMalterlibRegistry.h"
 #include "cmSystemTools.h"
+#include "cmCustomCommand.h"
 
 #include <cmsys/RegularExpression.hxx>
 #include <set>

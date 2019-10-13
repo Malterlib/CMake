@@ -2324,7 +2324,7 @@ void cmSystemTools::FindCMakeResources(const char* argv0)
         DiskFS.f_SetWriteTime(CmakeRoot, SourceWriteTime);
         cmSystemTools::Message(fg_Format(
           "-- Update of CMakeRoot at '{}' from ExeFS took {fe1} s", 
-          CmakeRoot, Clock.f_GetTime()));
+          CmakeRoot, Clock.f_GetTime()).f_GetStr());
       }
     } while (false);
     
