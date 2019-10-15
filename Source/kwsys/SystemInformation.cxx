@@ -3905,6 +3905,7 @@ SystemInformation::LongLong SystemInformationImplementation::GetProcessId()
 #  pragma warning(disable : 4091) /* 'typedef ': ignored on left of '' */
 #  include "dbghelp.h"
 #  pragma warning(pop)
+#  pragma comment(lib, "dbghelp.lib")
 #endif
 
 /**
