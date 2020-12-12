@@ -4,7 +4,9 @@
 
 #if defined(__linux)
 /* Needed for glibc < 2.12 */
+#ifndef _XOPEN_SOURCE
 #  define _XOPEN_SOURCE 600
+#endif
 #endif
 #if !defined(_WIN32) && !defined(__sun)
 /* POSIX APIs are needed */
