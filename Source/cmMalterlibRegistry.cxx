@@ -117,8 +117,8 @@ namespace
           }
         }
       }
-
     }
+
     if (bNeedEscape) {
       if (t_bEscapeNewLines) {
         size_t Len = _Str.length();
@@ -143,7 +143,7 @@ namespace
       toReturn = _Str;
     return toReturn;
   }
-  
+
   std::string makeTabs(std::string const &str) {
     size_t numChars = 0;
     for (auto const &character : str) {
@@ -157,6 +157,13 @@ namespace
     returnString.insert(returnString.length(), numChars - numTabs * 4, ' ');
     return returnString;
   }  
+}
+
+std::string cmMalterlibRegistry::getEscaped(std::string const &_Str, bool _bForceEscape, bool _bEscapeNewLines) {
+  if (_bEscapeNewLines)
+    return getEscapedStr<true>(_Str, _bForceEscape, {});
+  else
+    return getEscapedStr<false>(_Str, _bForceEscape, {});
 }
 
 cmMalterlibRegistry &cmMalterlibRegistry::setChild(std::string const &key, 
@@ -210,11 +217,17 @@ void cmMalterlibRegistry::outputRecursive(cmGeneratedFileStream &stream,
   if (!Value.empty() || Children.empty()) {
     std::string prefix;
     prefix = indent;
-    prefix += getEscapedStr<false>(Key, false, std::string());
+    if (RawKey)
+      prefix += Key;
+    else
+      prefix += getEscapedStr<false>(Key, false, std::string());
     prefix += " ";
     stream << prefix;
     prefix = makeTabs(prefix);
-    stream << getEscapedStr<true>(Value, Value != "true" && Value != "false", prefix);
+    if (RawValue)
+      stream << Value;
+    else
+      stream << getEscapedStr<true>(Value, Value != "true" && Value != "false", prefix);
   } else {
     stream << indent;
     stream << getEscapedStr<false>(Key, false, std::string());
