@@ -20,7 +20,9 @@ public:
                                       std::string const &value);
   void output(cmGeneratedFileStream &stream);
   void pruneLoneChildren();
-  std::vector<cmMalterlibRegistry>::iterator getChildIterator(); 
+  std::vector<cmMalterlibRegistry>::iterator getChildIterator();
+
+  static std::string getEscaped(const std::string &_Str, bool _bForceEscape, bool _bEscapeNewLines);
 
   std::string Key;
   std::string Value;
@@ -29,7 +31,9 @@ public:
   std::map<std::pair<std::string, std::string>, cmMalterlibRegistry *> 
     ChildrenValueMap;
   bool Protected = false;
-  
+  bool RawKey = false;
+  bool RawValue = false;
+
 private:
   void outputRecursive(cmGeneratedFileStream &stream, 
                        std::string const &indent);

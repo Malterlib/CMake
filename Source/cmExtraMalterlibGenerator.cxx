@@ -271,7 +271,30 @@ void cmExtraMalterlibGenerator::CreateProjectFile(
 }
 
 static std::string makeAbsoluteWrapper(std::string const &fileName) {
-  return "@('" + fileName + "'->MakeAbsolute())";
+  return cmMalterlibRegistry::getEscaped(fileName, true, true) + "->MakeAbsolute()";
+}
+
+static std::string makeAbsoluteWrapperEvalString(std::string const &fileName) {
+  return "@(" + cmMalterlibRegistry::getEscaped(fileName, true, true) + "->MakeAbsolute()->EscapeHost())";
+}
+
+static std::string makeIdentifier(std::string const &stringIdentifier) {
+  std::string identifier;
+  constexpr static auto underscore = "\\";
+
+  for (auto &character : stringIdentifier) {
+    if ((character >= '0' && character <= '9')
+        || (character >= 'a' && character <= 'z')
+        || (character >= 'A' && character <= 'Z')
+        || character == '_') {
+      identifier.append(&character, 1);
+    } else {
+      identifier.append(underscore);
+      identifier.append(&character, 1);
+    }
+  }
+
+  return identifier;
 }
 
 void cmExtraMalterlibGenerator::CreateNewProjectFile(
@@ -285,8 +308,11 @@ void cmExtraMalterlibGenerator::CreateNewProjectFile(
   cmMalterlibRegistry registry;
   std::string projectName = lgs[0]->GetProjectName();
   
-  registry.addChild("Property.CMakeOutputPath_" + projectName, 
-                    makeAbsoluteWrapper(lgs[0]->GetBinaryDirectory()));
+  auto &child = registry.addChild("Property.CMakeOutputPath_" + makeIdentifier(projectName),
+                    "define string = " + makeAbsoluteWrapper(lgs[0]->GetBinaryDirectory()));
+
+  child.RawKey = true;
+  child.RawValue = true;
   
   const cmMakefile* mf = lgs[0]->GetMakefile();
   AppendAllTargets(lgs, mf, registry);
@@ -396,6 +422,9 @@ cmMalterlibRegistry& cmExtraMalterlibGenerator::AddFileInGroup(
     if (path == "/" || path.empty())
       continue;
     addAtRegistry = &addAtRegistry->addUniqueChild("%Group", path);
+    if (cmSystemTools::StringStartsWith(path, "`"))
+      addAtRegistry->RawValue = true;
+    
     if (bProtectGroups)
       addAtRegistry->Protected = true;
   }
@@ -427,24 +456,30 @@ void cmExtraMalterlibGenerator::AddFilesToRegistry(
       cmCustomCommandGenerator customCommandGenerator(*customCommand
         , configName, lg);
       auto &OutCompile = outFile.addChild("Compile", "");
-      
+
+      auto WorkingDirectory = customCommandGenerator.GetWorkingDirectory();
+
       if (!malterlibType.empty())
         OutCompile.addChild("Type", malterlibType);
       OutCompile.addChild("Custom_WorkingDirectory", 
-                          makeAbsoluteWrapper(customCommandGenerator.GetWorkingDirectory()));
+                          makeAbsoluteWrapper(WorkingDirectory)).RawValue = true;
 
+      std::set<std::string> UsedOutputs;
       {
         std::string outputs;
         for (auto &output : customCommandGenerator.GetOutputs()) {
 
+          UsedOutputs.insert(output);
+
           if (outputs.empty()) {
-            outputs = makeAbsoluteWrapper(output);
+            outputs = "[" + makeAbsoluteWrapper(output);
           } else {
-            outputs += ";";
+            outputs += ", ";
             outputs += makeAbsoluteWrapper(output);
           }
         }
-        OutCompile.addChild("Custom_Outputs", outputs);
+        outputs += "]";
+        OutCompile.addChild("Custom_Outputs", outputs).RawValue = true;
       }
       
       std::string firstInput;
@@ -458,15 +493,16 @@ void cmExtraMalterlibGenerator::AddFilesToRegistry(
             if (index == 0)
               firstInput = realDependency;
             if (inputs.empty()) {
-              inputs = makeAbsoluteWrapper(realDependency);
+              inputs = "[" + makeAbsoluteWrapper(realDependency);
             } else {
-              inputs += ";";
+              inputs += ", ";
               inputs += makeAbsoluteWrapper(realDependency);
             }
             ++index;
           }
         }
-        OutCompile.addChild("Custom_Inputs", inputs);
+        inputs += "]";
+        OutCompile.addChild("Custom_Inputs", inputs).RawValue = true;
       }
       {
         cmGeneratedFileStream fout(fullPath.c_str());
@@ -480,22 +516,36 @@ void cmExtraMalterlibGenerator::AddFilesToRegistry(
         for (auto &commandLine :
              customCommandGenerator.GetCC().GetCommandLines()) {
 
-          auto newCommandLine = commandLine;
-          for (auto &line : newCommandLine) {
-            if (baseDir && StringStartsWithPath(line, baseDir))
-              line = makeAbsoluteWrapper(line);
-            else if (StringStartsWithPath(line, binaryDir.c_str()))
-              line = makeAbsoluteWrapper(line);
+          std::string newCommandLine;
+          for (auto &param : commandLine)
+          {
+            if (!newCommandLine.empty())
+              newCommandLine += " ";
+
+            if (baseDir && StringStartsWithPath(param, baseDir))
+              newCommandLine += makeAbsoluteWrapperEvalString(param);
+            else if (StringStartsWithPath(param, binaryDir.c_str()))
+              newCommandLine += makeAbsoluteWrapperEvalString(param);
+            else if (UsedOutputs.find(WorkingDirectory + "/" + param) != UsedOutputs.end())
+              newCommandLine += makeAbsoluteWrapperEvalString(WorkingDirectory + "/" + param);
+            else
+            {
+              if (param.find(" ") == std::string::npos)
+                newCommandLine += param;
+              else
+                newCommandLine += cmMalterlibRegistry::getEscaped(param, false, true);
+            }
           }
+
           if (commandLines.empty())
-            commandLines = cmSystemTools::PrintSingleCommand(newCommandLine);
+            commandLines = newCommandLine;
           else
           {
             commandLines += " && ";
-            commandLines += cmSystemTools::PrintSingleCommand(newCommandLine);
+            commandLines += newCommandLine;
           }
         }
-        OutCompile.addChild("Custom_CommandLine", commandLines);
+        OutCompile.addChild("Custom_CommandLine", "`" + commandLines + "`").RawValue = true;
       }
       continue;
     }
@@ -542,10 +592,17 @@ void cmExtraMalterlibGenerator::AddFilesToRegistry(
         ParseCompileFlags(defines, cStd, processed);
       }
 
-      if (!defines.empty())
-        outFile.addChild("Compile.PreprocessorDefines", 
-                         cmJoin(defines, ";") + 
-                         ";@(Compile.PreprocessorDefines)");
+      if (!defines.empty()) {
+        std::vector<std::string> newDefines;
+
+        for (auto &define : defines)
+          newDefines.push_back(cmMalterlibRegistry::getEscaped(define, true, true));
+
+        auto &outDefines = outFile.addChild("Compile.PreprocessorDefines",
+                                            "+= [" + cmJoin(newDefines, ", ") + "]");
+
+        outDefines.RawValue = true;
+      }
     }
   }
 }
@@ -575,7 +632,7 @@ void cmExtraMalterlibGenerator::AppendTarget(
   auto &outputTarget = registry.addChild("%Target", GetTargetName(target));
   outputTarget.addChild("Property.MalterlibTargetNameType", "Normal");
   auto &group = outputTarget.addChild("Target.Group", "External/" + lg->GetProjectName());
-  group.addChild("!!Target.Group", "");
+  group.addChild("!!Target.Group", "undefined").RawValue = true;
   outputTarget.addChild("Target.Type", GetTargetType(target));
   outputTarget.addChild("Target.BaseName", target->GetName());
 
@@ -613,9 +670,9 @@ void cmExtraMalterlibGenerator::AppendTarget(
       outputTarget.addChild("%Dependency", GetTargetName(dependency));
     
     if (!dependency.IsLink())
-      outputDependency.addChild("Dependency.Link", "false");
+      outputDependency.addChild("Dependency.Link", "false").RawValue = true;
     else if (IsStaticLib(target) && IsStaticLib(dependency))
-      outputDependency.addChild("Dependency.Indirect", "true");
+      outputDependency.addChild("Dependency.Indirect", "true").RawValue = true;
   }
   
   for (auto &infoMap : compileTypeInfo) {
@@ -626,12 +683,21 @@ void cmExtraMalterlibGenerator::AppendTarget(
       auto end = cmRemoveDuplicates(info.Includes);
       info.Includes.erase(end, info.Includes.end());
     }
-    info.Includes.push_back("@(Compile.SearchPath)");
     auto &compileOutput = outputTarget.addChild("Compile", "", true);
     compileOutput.addChild("!!Compile.Type", infoMap.first);
-    compileOutput.addChild("SearchPath", cmJoin(info.Includes, ";"));      
-    compileOutput.addChild("PreprocessorDefines", cmJoin(info.Defines, ";") + 
-                           ";@(Compile.PreprocessorDefines)");
+    {
+      auto &outSearchPath = compileOutput.addChild("SearchPath", "+= [" + cmJoin(info.Includes, ", ") + "]");
+      outSearchPath.RawValue = true;
+    }
+    {
+      std::vector<std::string> newDefines;
+
+      for (auto &define : info.Defines)
+        newDefines.push_back(cmMalterlibRegistry::getEscaped(define, true, true));
+
+      auto &outDefines = compileOutput.addChild("PreprocessorDefines", "+= [" + cmJoin(newDefines, ", ") + "]");
+      outDefines.RawValue = true;
+    }
     if (!info.cStd.empty()) {
       if (infoMap.first == "C") {
         compileOutput.addChild("CLanguage", 
