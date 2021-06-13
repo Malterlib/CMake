@@ -8,12 +8,13 @@
 namespace
 {
   char *strEscapeStr(char *_pStrDest, const char *_pStrSource, 
-                     const char *_pEscapeChars, const char *_pReplaceChars) {
+                     const char *_pEscapeChars, const char *_pReplaceChars, bool _bAddQuotes) {
     assert(strlen(_pEscapeChars) == strlen(_pReplaceChars));
 
     char *pDest = _pStrDest;
 
-    *(pDest++) = '"';
+		if (_bAddQuotes)
+			*(pDest++) = _pReplaceChars[0];
     const char *pParse = _pStrSource;
 
     while (*pParse) {
@@ -31,39 +32,10 @@ namespace
       }
       *(pDest++) = *(pParse++);
     }
-    *(pDest++) = '"';
+		if (_bAddQuotes)
+			*(pDest++) = _pReplaceChars[0];
     *(pDest++) = 0;
     return _pStrDest;
-  }
-  
-  std::string &addEscapeStr(std::string &_StrDest, 
-                            const std::string &_StrSource, 
-                            const char *_pEscapedChars, 
-                            const char *_pReplaceChars) {
-    const char *pSource = _StrSource.c_str();
-    const char *pParse = pSource;
-    size_t NeededSize = 3;
-    while (*pParse) {
-      const char *pEscape = _pEscapedChars;
-      while (*pEscape) {
-        if (*pParse == *pEscape)
-          break;
-        ++pEscape;
-      }
-      if (*pEscape)
-        NeededSize += 2;
-      else
-        ++NeededSize;
-
-      ++pParse;
-    }
-
-    size_t currentLength = _StrDest.length();
-    _StrDest.resize(currentLength + NeededSize);
-    char *pDest = &_StrDest[currentLength];
-    strEscapeStr(pDest, pSource, _pEscapedChars, _pReplaceChars);
-	_StrDest.resize(strlen(&_StrDest[0]));
-    return _StrDest;
   }
   
   template <bool t_bEscapeNewLines>
@@ -126,18 +98,18 @@ namespace
         for (size_t i = 0; i < Len; ++i) {
           char Current = _Str[i];
           if (Current == '\n') {
-            addEscapeStr(toReturn, _Str.substr(iStart, (i+1)-iStart), 
-                         "\\\"\r\n\t", "\\\"rnt");
+            cmMalterlibRegistry::addEscapeStr(toReturn, _Str.substr(iStart, (i+1)-iStart),
+                         "\"\\\r\n\t", "\"\\rnt", true);
             toReturn += "\\\n";
             toReturn += _PreData;
             iStart = i+1;
           }
         }
-        addEscapeStr(toReturn, _Str.substr(iStart, Len - iStart), 
-                     "\\\"\r\n\t", "\\\"rnt");
+        cmMalterlibRegistry::addEscapeStr(toReturn, _Str.substr(iStart, Len - iStart),
+                     "\"\\\r\n\t", "\"\\rnt", true);
       }
       else
-        addEscapeStr(toReturn, _Str, "\\\"\r\n\t", "\\\"rnt");
+        cmMalterlibRegistry::addEscapeStr(toReturn, _Str, "\"\\\r\n\t", "\"\\rnt", true);
     }
     else
       toReturn = _Str;
@@ -158,6 +130,35 @@ namespace
     return returnString;
   }  
 }
+
+std::string &cmMalterlibRegistry::addEscapeStr(std::string &_StrDest, const std::string &_StrSource, const char *_pEscapedChars, const char *_pReplaceChars, bool _bAddQuotes)
+{
+	const char *pSource = _StrSource.c_str();
+	const char *pParse = pSource;
+	size_t NeededSize = _bAddQuotes ? 3 : 1;
+	while (*pParse) {
+		const char *pEscape = _pEscapedChars;
+		while (*pEscape) {
+			if (*pParse == *pEscape)
+				break;
+			++pEscape;
+		}
+		if (*pEscape)
+			NeededSize += 2;
+		else
+			++NeededSize;
+
+		++pParse;
+	}
+
+	size_t currentLength = _StrDest.length();
+	_StrDest.resize(currentLength + NeededSize);
+	char *pDest = &_StrDest[currentLength];
+	strEscapeStr(pDest, pSource, _pEscapedChars, _pReplaceChars, _bAddQuotes);
+	_StrDest.resize(strlen(&_StrDest[0]));
+	return _StrDest;
+}
+
 
 std::string cmMalterlibRegistry::getEscaped(std::string const &_Str, bool _bForceEscape, bool _bEscapeNewLines) {
   if (_bEscapeNewLines)

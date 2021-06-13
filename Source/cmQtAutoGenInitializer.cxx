@@ -12,6 +12,7 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
+#include <iostream>
 
 #include <cm/algorithm>
 #include <cm/iterator>
@@ -1119,8 +1120,8 @@ bool cmQtAutoGenInitializer::InitAutogenTarget()
   this->Makefile->AddCMakeOutputFile(this->AutogenTarget.InfoFile);
 
   // Determine whether to use a depfile for the AUTOGEN target.
-  const bool useNinjaDepfile = this->QtVersion >= IntegerVersion(5, 15) &&
-    this->GlobalGen->GetName().find("Ninja") != std::string::npos;
+  const bool useNinjaDepfile = false; //this->QtVersion >= IntegerVersion(5, 15) &&
+  //  this->GlobalGen->GetName().find("Ninja") != std::string::npos;
 
   // Files provided by the autogen target
   std::vector<std::string> autogenByproducts;
@@ -1142,6 +1143,8 @@ bool cmQtAutoGenInitializer::InitAutogenTarget()
     } else {
       autogenByproducts.push_back(this->Moc.CompilationFileGenex);
     }
+    autogenByproducts.push_back(this->AutogenTarget.SettingsFile.Default);
+    autogenByproducts.push_back(this->AutogenTarget.ParseCacheFile.Default);
   }
 
   if (this->Uic.Enabled) {
@@ -1294,6 +1297,8 @@ bool cmQtAutoGenInitializer::InitAutogenTarget()
       this->AutogenTarget.DependFiles.begin(),
       this->AutogenTarget.DependFiles.end());
 
+    dependencies.push_back(this->AutogenTarget.InfoFile);
+
     if (useNinjaDepfile) {
       // Create a custom command that generates a timestamp file and
       // has a depfile assigned. The depfile is created by JobDepFilesMergeT.
@@ -1385,6 +1390,8 @@ bool cmQtAutoGenInitializer::InitAutogenTarget()
       commandLines.clear();
       autogenComment.clear();
     }
+
+    autogenByproducts.push_back("/DIR:" + Dir.Build);
 
     // Create autogen target
     auto cc = cm::make_unique<cmCustomCommand>();
