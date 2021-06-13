@@ -2213,8 +2213,8 @@ void cmSystemTools::FindCMakeResources(const char* argv0)
     
     CUniversallyUniqueIdentifier UUID{
       EUniversallyUniqueIdentifierGenerate_StringHash
-      , UUIDNamespace, CFile::fs_GetProgramPath()};
-    
+      , UUIDNamespace, CFile::fs_GetProgramPath().f_LowerCase()};
+
     CStr CacheDirectory = CFile::fs_GetUserLocalProgramCacheDirectory();
     CStr CmakeRoot = fg_Format("{}/{}/CMakeRoot", CacheDirectory, 
       UUID.f_GetAsString(EUniversallyUniqueIdentifierFormat_AlphaNum));

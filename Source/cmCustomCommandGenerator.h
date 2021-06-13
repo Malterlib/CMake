@@ -8,6 +8,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <functional>
 
 #include <cm/optional>
 
@@ -50,6 +51,10 @@ public:
   unsigned int GetNumberOfCommands() const;
   std::string GetCommand(unsigned int c) const;
   void AppendArguments(unsigned int c, std::string& cmd) const;
+  void AppendArguments(unsigned int c, std::string& cmd
+		, std::function<std::string (std::string const &_String, bool &o_bEscape)> const &transformParam
+		, std::function<std::string (std::string const &_String)> const &escapeParam
+	) const;
   const char* GetComment() const;
   std::string GetWorkingDirectory() const;
   std::vector<std::string> const& GetOutputs() const;

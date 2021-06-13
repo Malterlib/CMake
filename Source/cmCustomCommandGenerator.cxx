@@ -340,21 +340,34 @@ std::string escapeForShellOldStyle(const std::string& str)
 #endif
 }
 
-void cmCustomCommandGenerator::AppendArguments(unsigned int c,
-                                               std::string& cmd) const
-{
+void cmCustomCommandGenerator::AppendArguments(unsigned int c, std::string& cmd
+																							 , std::function<std::string (std::string const &_String, bool &o_bEscape)> const &transformParam
+																							 , std::function<std::string (std::string const &_String)> const &escapeParam
+																							 ) const {
   unsigned int offset = 1;
   std::vector<std::string> emulator = this->GetCrossCompilingEmulator(c);
   if (!emulator.empty()) {
     for (unsigned j = 1; j < emulator.size(); ++j) {
       cmd += " ";
-      if (this->OldStyle) {
-        cmd += escapeForShellOldStyle(emulator[j]);
-      } else {
-        cmd +=
-          this->LG->EscapeForShell(emulator[j], this->MakeVars, false, false,
-                                   this->MakeVars && this->LG->IsNinjaMulti());
-      }
+			bool bEscape = true;
+			auto transformed = transformParam ? transformParam(emulator[j], bEscape) : emulator[j];
+			if (bEscape) {
+				std::string escaped;
+
+				if (this->OldStyle) {
+					escaped = escapeForShellOldStyle(transformed);
+				} else {
+					escaped = this->LG->EscapeForShell(transformed, this->MakeVars, false, false,
+																	 this->MakeVars && this->LG->IsNinjaMulti());
+				}
+
+				if (escapeParam)
+					cmd += escapeParam(escaped);
+				else
+					cmd += escaped;
+			} else {
+				cmd += transformed;
+			}
     }
 
     offset = 0;
@@ -371,14 +384,33 @@ void cmCustomCommandGenerator::AppendArguments(unsigned int c,
       arg = commandLine[j];
     }
     cmd += " ";
-    if (this->OldStyle) {
-      cmd += escapeForShellOldStyle(arg);
-    } else {
-      cmd +=
-        this->LG->EscapeForShell(arg, this->MakeVars, false, false,
-                                 this->MakeVars && this->LG->IsNinjaMulti());
-    }
+		bool bEscape = true;
+		auto transformed = transformParam ? transformParam(arg, bEscape) : arg;
+
+		if (bEscape) {
+			std::string escaped;
+			if (this->OldStyle) {
+				escaped = escapeForShellOldStyle(transformed);
+			} else {
+				escaped = this->LG->EscapeForShell(transformed, this->MakeVars, false, false,
+																	 this->MakeVars && this->LG->IsNinjaMulti());
+			}
+
+			if (escapeParam)
+				cmd += escapeParam(escaped);
+			else
+				cmd += escaped;
+
+		} else {
+			cmd += transformed;
+		}
   }
+}
+
+void cmCustomCommandGenerator::AppendArguments(unsigned int c,
+                                               std::string& cmd) const
+{
+  return AppendArguments(c, cmd, nullptr, nullptr);
 }
 
 std::string cmCustomCommandGenerator::GetFullDepfile() const

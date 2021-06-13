@@ -23,6 +23,7 @@ public:
   std::vector<cmMalterlibRegistry>::iterator getChildIterator();
 
   static std::string getEscaped(const std::string &_Str, bool _bForceEscape, bool _bEscapeNewLines);
+  static std::string &addEscapeStr(std::string &_StrDest, const std::string &_StrSource, const char *_pEscapedChars, const char *_pReplaceChars, bool _bAddQuotes);
 
   std::string Key;
   std::string Value;

@@ -22,8 +22,8 @@
 #include "cmStateTypes.h"
 #include "cmSystemTools.h"
 #include "cmake.h"
-#include "cmCustomCommandGenerator.h"
 #include "cmLocalCommonGenerator.h"
+#include "cmRulePlaceholderExpander.h"
 
 /*
 Malterlib Generator
@@ -51,26 +51,26 @@ namespace
 #endif
 
 
-  std::string GetTargetName(const cmGeneratorTarget* target) {
+  std::string GetTargetName(const cmGeneratorTarget* target, std::string const &projectName) {
     std::string prefix;
     switch (target->GetType()) {
       case cmStateEnums::EXECUTABLE:
-        prefix = "Exe_";
+        prefix = "Com_" + projectName + "_";
         break;
       case cmStateEnums::STATIC_LIBRARY:
-        prefix = "Lib_";
+        prefix = "Lib_" + projectName + "_";
         break;
       case cmStateEnums::OBJECT_LIBRARY:
-        prefix = "Lib_";
+        prefix = "Lib_" + projectName + "_";
         break;
       case cmStateEnums::SHARED_LIBRARY:
-        prefix = "Dll_";
+        prefix = "Dll_" + projectName + "_";
         break;
       case cmStateEnums::MODULE_LIBRARY:
-        prefix = "Dll_";
+        prefix = "Dll_" + projectName + "_";
         break;
       case cmStateEnums::UTILITY:
-        prefix = "Tool_";
+        prefix = "Tool_" + projectName + "_";
         break;
       default:
         assert(false);
@@ -99,7 +99,7 @@ namespace
     }
     return "";
   }
-  
+
   bool IsStaticLib(const cmGeneratorTarget* target) {
     switch (target->GetType()) {
       case cmStateEnums::STATIC_LIBRARY:
@@ -109,7 +109,7 @@ namespace
         return false;
     }
   }
-  
+
   void ParseCompileFlags(std::set<std::string>& defines, std::string &cStd,
                                   const std::string& flags) {
     cmsys::RegularExpression flagRegex;
@@ -139,34 +139,34 @@ namespace
     }
   }
 
-  std::string getMalterlibCompileType(std::string const &language, 
+  std::string getMalterlibCompileType(std::string const &language,
                                       cmLocalGenerator *localGenerator) {
     if (language.empty())
       return std::string{};
-    
-    char const *malterlibLanguage = 
+
+    char const *malterlibLanguage =
       cmSystemTools::GetEnv("CMAKE_MALTERLIB_LANGUAGE_" + language);
     if (!malterlibLanguage) {
         localGenerator->GetMakefile()->IssueMessage(MessageType::FATAL_ERROR,
-          "Language not recognized. Please add to Property.CMake_Languages: " + 
+          "Language not recognized. Please add to Property.CMake_Languages: " +
           language);
       return std::string{};
     }
     return malterlibLanguage;
   }
-  
+
   struct cmMalterlibCompileTypeInfo
   {
     std::vector<std::string> Includes;
     std::set<std::string> Defines;
     std::string cStd;
   };
-  
+
   void AddTargetCompileInfo(
       std::map<std::string, cmMalterlibCompileTypeInfo> &compileTypeInfo
       , const cmGeneratorTarget* target
       , cmLocalGenerator* lg
-      , std::string const &configName) 
+      , std::string const &configName)
   {
     std::set<std::string> targetLanguages;
     target->GetLanguages(targetLanguages, configName);
@@ -178,9 +178,9 @@ namespace
       lg->GetIncludeDirectories(info.Includes, target, language, configName);
       lg->GetTargetDefines(target, configName, language, info.Defines);
       std::string compileFlags;
-      lg->GetTargetCompileFlags(const_cast<cmGeneratorTarget* >(target), 
+      lg->GetTargetCompileFlags(const_cast<cmGeneratorTarget* >(target),
                                 configName, language, compileFlags);
-      
+
       ParseCompileFlags(info.Defines, info.cStd, compileFlags);
     }
   }
@@ -203,15 +203,18 @@ cmExtraMalterlibGenerator::GetFactory()
 cmExtraMalterlibGenerator::cmExtraMalterlibGenerator()
   : cmExternalMakefileProjectGenerator()
 {
-  char const *hidePrefixesString = 
+  tempDir = cmSystemTools::GetEnv("CMAKE_MALTERLIB_TEMPDIR");
+  baseDir = cmSystemTools::GetEnv("CMAKE_MALTERLIB_BASEDIR");
+
+  char const *hidePrefixesString =
     cmSystemTools::GetEnv("CMAKE_MALTERLIB_HIDEPREFIXES");
   if (hidePrefixesString) {
     this->HidePrefixes
       = cmSystemTools::SplitString(hidePrefixesString, ';');
   }
-  char const *replacePrefixesString = 
+  char const *replacePrefixesString =
     cmSystemTools::GetEnv("CMAKE_MALTERLIB_REPLACEPREFIXES");
-  
+
   if (replacePrefixesString) {
     auto replaceSplit = cmSystemTools::SplitString(replacePrefixesString, ';');
     for (auto &replace : replaceSplit) {
@@ -225,19 +228,50 @@ cmExtraMalterlibGenerator::cmExtraMalterlibGenerator()
   }
 }
 
-void cmExtraMalterlibGenerator::Generate()
+void cmExtraMalterlibGenerator::CollectOutputFiles()
 {
-  // for each sub project in the project create a Malterrlib Header files
-  for (std::map<std::string, std::vector<cmLocalGenerator*> >::const_iterator
-         it = this->GlobalGenerator->GetProjectMap().begin();
-       it != this->GlobalGenerator->GetProjectMap().end(); ++it) {
-    // create a project file
-    this->CreateProjectFile(it->second);
+  for (auto &Project : this->GlobalGenerator->GetProjectMap()) {
+    auto &lgs = Project.second;
+    std::string outputDir = lgs[0]->GetCurrentBinaryDirectory();
+    std::string projectName = lgs[0]->GetProjectName();
+
+    const cmMakefile* mf = lgs[0]->GetMakefile();
+    CollectOutputFilesFromTargets(Project.first, lgs, mf);
   }
 }
 
-void cmExtraMalterlibGenerator::CreateProjectFile(
-  const std::vector<cmLocalGenerator*>& lgs)
+void cmExtraMalterlibGenerator::Generate()
+{
+  CollectOutputFiles();
+  // for each sub project in the project create a Malterrlib Header files
+  for (auto &Project : this->GlobalGenerator->GetProjectMap()) {
+    // create a project file
+    this->CreateProjectFile(Project.first, Project.second);
+  }
+
+  std::set<std::string> AllOutputfiles;
+  for (auto &Files : MappedOutputFiles) {
+    for (auto &File : Files.second)
+      AllOutputfiles.insert(File);
+  }
+
+  {
+    cmGeneratedFileStream fout((tempDir + "/OutputFiles.list").c_str());
+    for (auto &File : AllOutputfiles) {
+        fout << File;
+        fout << "\n";
+    }
+  }
+  {
+    cmGeneratedFileStream fout((tempDir + "/ProtectedFiles.list").c_str());
+    for (auto &File : ProtectedFiles) {
+        fout << File;
+        fout << "\n";
+    }
+  }
+}
+
+void cmExtraMalterlibGenerator::CreateProjectFile(std::string const &_ProjectName, const std::vector<cmLocalGenerator*>& lgs)
 {
   std::string outputDir = lgs[0]->GetCurrentBinaryDirectory();
   std::string projectName = lgs[0]->GetProjectName();
@@ -245,8 +279,8 @@ void cmExtraMalterlibGenerator::CreateProjectFile(
   const std::string filename =
     outputDir + "/" + projectName + ".MHeader";
 
-  this->CreateNewProjectFile(lgs, filename);
-  
+  this->CreateNewProjectFile(_ProjectName, lgs, filename);
+
   {
     std::vector<std::string> lfiles;
     for (std::vector<cmLocalGenerator*>::const_iterator gi = lgs.begin();
@@ -268,13 +302,33 @@ void cmExtraMalterlibGenerator::CreateProjectFile(
       fout << "\n";
     }
   }
+  {
+    cmGeneratedFileStream fout((filename + ".outputs").c_str());
+    for (auto &File : MappedOutputFiles[_ProjectName]) {
+        fout << File;
+        fout << "\n";
+    }
+  }
+}
+
+static bool isDynamic(std::string const &_String) {
+  return _String.find("->MakeAbsolute()") != std::string::npos;
 }
 
 static std::string makeAbsoluteWrapper(std::string const &fileName) {
+  if (fileName.empty())
+    return "\".\"->MakeAbsolute()";
+
+  if (isDynamic(fileName))
+    return fileName;
+
   return cmMalterlibRegistry::getEscaped(fileName, true, true) + "->MakeAbsolute()";
 }
 
 static std::string makeAbsoluteWrapperEvalString(std::string const &fileName) {
+  if (isDynamic(fileName))
+    return fileName;
+
   return "@(" + cmMalterlibRegistry::getEscaped(fileName, true, true) + "->MakeAbsolute()->EscapeHost())";
 }
 
@@ -297,30 +351,79 @@ static std::string makeIdentifier(std::string const &stringIdentifier) {
   return identifier;
 }
 
-void cmExtraMalterlibGenerator::CreateNewProjectFile(
+void cmExtraMalterlibGenerator::CreateNewProjectFile(std::string const &_ProjectName,
   const std::vector<cmLocalGenerator*>& lgs, const std::string& filename)
 {
   cmGeneratedFileStream fout(filename.c_str());
   if (!fout) {
     return;
   }
-  
+
   cmMalterlibRegistry registry;
   std::string projectName = lgs[0]->GetProjectName();
-  
+
   auto &child = registry.addChild("Property.CMakeOutputPath_" + makeIdentifier(projectName),
                     "define string = " + makeAbsoluteWrapper(lgs[0]->GetBinaryDirectory()));
 
   child.RawKey = true;
   child.RawValue = true;
-  
+
   const cmMakefile* mf = lgs[0]->GetMakefile();
-  AppendAllTargets(lgs, mf, registry);
-  
+  AppendAllTargets(_ProjectName, lgs, mf, registry);
+
   registry.output(fout);
 }
 
-void cmExtraMalterlibGenerator::AppendAllTargets(
+void cmExtraMalterlibGenerator::CollectOutputFilesFromTargets(std::string const &_ProjectName, std::vector<cmLocalGenerator *> const &lgs, const cmMakefile *mf)
+{
+  std::string make = mf->GetRequiredDefinition("CMAKE_MAKE_PROGRAM");
+  std::string compiler = "";
+
+  // add all executable and library targets and some of the GLOBAL
+  // and UTILITY targets
+  for (std::vector<cmLocalGenerator*>::const_iterator lg = lgs.begin();
+       lg != lgs.end(); lg++) {
+    cmMakefile* makefile = (*lg)->GetMakefile();
+    for (auto &target : (*lg)->GetGeneratorTargets()) {
+      std::string targetName = target->GetName();
+      switch (target->GetType()) {
+        case cmStateEnums::GLOBAL_TARGET:
+          break;
+        case cmStateEnums::UTILITY:
+        case cmStateEnums::INTERFACE_LIBRARY:
+          // Add all utility targets, except the Nightly/Continuous/
+          // Experimental-"sub"targets as e.g. NightlyStart
+          if (((targetName.find("Nightly") == 0) &&
+               (targetName != "Nightly")) ||
+              ((targetName.find("Continuous") == 0) &&
+               (targetName != "Continuous")) ||
+              ((targetName.find("Experimental") == 0) &&
+               (targetName != "Experimental"))) {
+            break;
+          }
+
+          this->CollectOutputFilesFromTarget(_ProjectName, *lg, target.get(), make.c_str(),
+                             makefile, compiler.c_str(),
+                             false);
+          break;
+        case cmStateEnums::EXECUTABLE:
+        case cmStateEnums::STATIC_LIBRARY:
+        case cmStateEnums::SHARED_LIBRARY:
+        case cmStateEnums::MODULE_LIBRARY:
+        {
+          this->CollectOutputFilesFromTarget(_ProjectName, *lg, target.get(), make.c_str(),
+                             makefile, compiler.c_str(),
+                             false);
+        } break;
+        case cmStateEnums::OBJECT_LIBRARY:
+        default:
+          break;
+      }
+    }
+  }
+}
+
+void cmExtraMalterlibGenerator::AppendAllTargets(std::string const &_ProjectName,
   const std::vector<cmLocalGenerator*>& lgs, const cmMakefile* mf,
   cmMalterlibRegistry& registry)
 {
@@ -338,6 +441,7 @@ void cmExtraMalterlibGenerator::AppendAllTargets(
         case cmStateEnums::GLOBAL_TARGET:
           break;
         case cmStateEnums::UTILITY:
+        case cmStateEnums::INTERFACE_LIBRARY:
           // Add all utility targets, except the Nightly/Continuous/
           // Experimental-"sub"targets as e.g. NightlyStart
           if (((targetName.find("Nightly") == 0) &&
@@ -349,8 +453,8 @@ void cmExtraMalterlibGenerator::AppendAllTargets(
             break;
           }
 
-          this->AppendTarget(registry, *lg, nullptr, make.c_str(),
-                             makefile, compiler.c_str(), 
+          this->AppendTarget(_ProjectName, registry, *lg, target.get(), make.c_str(),
+                             makefile, compiler.c_str(),
                              false);
           break;
         case cmStateEnums::EXECUTABLE:
@@ -358,11 +462,11 @@ void cmExtraMalterlibGenerator::AppendAllTargets(
         case cmStateEnums::SHARED_LIBRARY:
         case cmStateEnums::MODULE_LIBRARY:
         {
-          this->AppendTarget(registry, *lg, target.get(), make.c_str(),
-                             makefile, compiler.c_str(), 
+          this->AppendTarget(_ProjectName, registry, *lg, target.get(), make.c_str(),
+                             makefile, compiler.c_str(),
                              false);
         } break;
-        case cmStateEnums::OBJECT_LIBRARY: 
+        case cmStateEnums::OBJECT_LIBRARY:
         default:
           break;
       }
@@ -381,7 +485,7 @@ void cmExtraMalterlibGenerator::GetTargetFiles(
                            makefile->GetSafeDefinition("CMAKE_BUILD_TYPE"));
     std::vector<cmSourceFile*>::const_iterator sourceFilesEnd =
       newSourceFiles.end();
-    for (std::vector<cmSourceFile*>::const_iterator iter = 
+    for (std::vector<cmSourceFile*>::const_iterator iter =
          newSourceFiles.begin();
          iter != sourceFilesEnd; ++iter) {
       cmSourceFile* sourceFile = *iter;
@@ -390,10 +494,41 @@ void cmExtraMalterlibGenerator::GetTargetFiles(
   }
 }
 
-cmMalterlibRegistry& cmExtraMalterlibGenerator::AddFileInGroup(
-  cmMalterlibRegistry& registry,
-  std::string const &fileName
-) {
+std::string cmExtraMalterlibGenerator::replaceMappedOutputFiles(std::string const &_ProjectName, std::string const &_String, bool _bEvalString)
+{
+  std::string OutputString = _String;
+
+  if (StringStartsWithPath(_String, tempDir.c_str())) {
+    auto end = MappedOutputFiles[_ProjectName].end();
+    if (auto found = MappedOutputFiles[_ProjectName].find(_String); found != end)
+      cmSystemTools::ReplaceString(OutputString, *found, getMappedOutputFile(_ProjectName, *found, _bEvalString));
+    return OutputString;
+  }
+
+  for (auto &mapping : MappedOutputFiles[_ProjectName])
+    cmSystemTools::ReplaceString(OutputString, mapping, getMappedOutputFile(_ProjectName, mapping, _bEvalString));
+
+  return OutputString;
+}
+
+std::string cmExtraMalterlibGenerator::getMappedOutputFile(std::string const &_ProjectName, std::string const &_String, bool _bEvalString)
+{
+  if (!StringStartsWithPath(_String, tempDir.c_str()))
+      return _String;
+
+  if (auto found = MappedOutputFiles[_ProjectName].find(_String); found != MappedOutputFiles[_ProjectName].end())
+  {
+    if (_bEvalString)
+      return makeAbsoluteWrapperEvalString(_String);
+    else
+      return makeAbsoluteWrapper(_String);
+  }
+
+  return _String;
+}
+
+cmMalterlibRegistry& cmExtraMalterlibGenerator::AddFileInGroup(std::string const &_ProjectName, cmMalterlibRegistry& registry,std::string const &fileName)
+{
   std::string strippedFileName = fileName;
   for (auto &prefix : ReplacePrefixes){
     if (StringStartsWithPath(strippedFileName.c_str(), prefix.first.c_str())) {
@@ -401,7 +536,7 @@ cmMalterlibRegistry& cmExtraMalterlibGenerator::AddFileInGroup(
       break;
     }
   }
-  
+
   bool bFirstPrefix = true;
   bool bProtectGroups = false;
   for (auto &prefix : HidePrefixes){
@@ -413,157 +548,363 @@ cmMalterlibRegistry& cmExtraMalterlibGenerator::AddFileInGroup(
     }
     bFirstPrefix = false;
   }
-    
+
   std::vector<std::string> components;
-  cmSystemTools::SplitPath(cmSystemTools::GetFilenamePath(strippedFileName), 
+  cmSystemTools::SplitPath(cmSystemTools::GetFilenamePath(strippedFileName),
                            components);
   cmMalterlibRegistry *addAtRegistry = &registry;
   for (auto &path : components) {
-    if (path == "/" || path.empty())
+    if (path == "/" || path.empty() || path == "@(CompiledFiles)")
       continue;
     addAtRegistry = &addAtRegistry->addUniqueChild("%Group", path);
     if (cmSystemTools::StringStartsWith(path, "`"))
       addAtRegistry->RawValue = true;
-    
+
     if (bProtectGroups)
       addAtRegistry->Protected = true;
   }
-  
-  return addAtRegistry->addChild("%File", fileName);
+
+  auto &toReturn = addAtRegistry->addChild("%File", getMappedOutputFile(_ProjectName, fileName, false));
+
+  if (isDynamic(toReturn.Value))
+    toReturn.RawValue = true;
+
+  return toReturn;
 }
 
-void cmExtraMalterlibGenerator::AddFilesToRegistry(
+void cmExtraMalterlibGenerator::CollectOutputFilesFromFiles(std::string const &_ProjectName,
+  std::vector<cmSourceFile*> const &sourceFiles,
+  std::string const &configName,
+  cmLocalGenerator* lg,
+  const cmGeneratorTarget* target,
+  bool isUtilityTarget
+)
+{
+  auto fAddOutput = [&](std::string const &_Output)
+    {
+      std::string Output;
+      if (StringStartsWithPath(_Output, "/DIR:"))
+          Output = _Output.substr(5);
+      else
+          Output = _Output;
+
+      if (StringStartsWithPath(Output, tempDir.c_str())) {
+        //std::cout << "Adding mapped: " << Output << "\n";
+        MappedOutputFiles[_ProjectName].insert(Output);
+        MappedOutputDirectories[_ProjectName].insert(cmSystemTools::GetFilenamePath(Output));
+      } else {
+        std::cout << "Non mapped output: " << Output << "\n";
+      }
+    }
+  ;
+  auto *pMakefile = lg->GetMakefile();
+  for (auto &file : sourceFiles)
+  {
+    if (!file->GetObjectLibrary().empty())
+      continue;
+
+    auto *customCommand = file->GetCustomCommand();
+
+    std::string fullPath = file->GetFullPath();
+    if (customCommand)
+    {
+      cmCustomCommandGenerator customCommandGenerator(*customCommand, configName, lg);
+
+      if (customCommandGenerator.GetCC().GetCommandLines().empty())
+        continue;
+
+			auto depFile = customCommandGenerator.GetInternalDepfile();
+
+			if (!depFile.empty())
+				fAddOutput(depFile);
+
+      for (auto &output : customCommandGenerator.GetOutputs())
+      {
+        bool symbolic = false;
+        if (cmSourceFile *sf = pMakefile->GetSource(output))
+        {
+          if (sf->GetPropertyAsBool("SYMBOLIC"))
+          {
+            symbolic = true;
+            break;
+          }
+        }
+        if (!symbolic)
+          fAddOutput(output);
+      }
+      for (auto &output : customCommandGenerator.GetByproducts())
+        fAddOutput(output);
+
+      continue;
+    }
+  }
+}
+
+std::string cmExtraMalterlibGenerator::MakeCustomLauncher(std::string const &_ProjectName, cmLocalGenerator *localGenerator, cmCustomCommandGenerator const &ccg)
+{
+  cmProp property_value = localGenerator->GetMakefile()->GetProperty("RULE_LAUNCH_CUSTOM");
+
+  if (!cmNonempty(property_value)) {
+    return std::string();
+  }
+
+  // Expand rule variables referenced in the given launcher command.
+  cmRulePlaceholderExpander::RuleVariables vars;
+
+  std::string output;
+  const std::vector<std::string>& outputs = ccg.GetOutputs();
+  if (!outputs.empty()) {
+    output = outputs[0];
+    output = localGenerator->ConvertToOutputFormat(output, cmOutputConverter::SHELL);
+  }
+  vars.Output = output.c_str();
+
+  std::unique_ptr<cmRulePlaceholderExpander> rulePlaceholderExpander(localGenerator->CreateRulePlaceholderExpander());
+
+  std::string launcher = *property_value;
+  rulePlaceholderExpander->ExpandRuleVariables(localGenerator, launcher, vars);
+  if (!launcher.empty()) {
+    launcher = ConvertCommandParam(_ProjectName, localGenerator, launcher);
+    launcher += " ";
+  }
+
+  return launcher;
+}
+
+std::string cmExtraMalterlibGenerator::ConvertCommandParam(std::string const &_ProjectName, cmLocalGenerator *localGenerator, std::string const &_String)
+{
+  auto binaryDir = localGenerator->GetBinaryDirectory();
+  std::string param = _String;
+
+  cmSystemTools::ReplaceString(param, "@", "@@");
+
+  if (StringStartsWithPath(param, baseDir.c_str()))
+    param = makeAbsoluteWrapperEvalString(replaceMappedOutputFiles(_ProjectName, param, true));
+  else if (StringStartsWithPath(param, binaryDir.c_str()))
+    param = makeAbsoluteWrapperEvalString(replaceMappedOutputFiles(_ProjectName, param, true));
+  else
+    param = replaceMappedOutputFiles(_ProjectName, param, true);
+
+  return param;
+}
+
+void cmExtraMalterlibGenerator::AddFilesToRegistry(std::string const &_ProjectName,
   cmMalterlibRegistry& registry,
   std::vector<cmSourceFile*> const &sourceFiles,
   std::string const &configName,
   cmLocalGenerator *lg,
-  const cmGeneratorTarget* target)
+  const cmGeneratorTarget* target,
+  bool isUtilityTarget)
 {
+  auto *pMakefile = lg->GetMakefile();
+
   for (auto &file : sourceFiles) {
     if (!file->GetObjectLibrary().empty())
       continue;
-    
+
     auto *customCommand = file->GetCustomCommand();
-	  
+
     std::string fullPath = file->GetFullPath();
-    auto generated = file->GetProperties().GetPropertyValue("GENERATED");
-    
-    std::string malterlibType = getMalterlibCompileType(file->GetLanguage(), 
-                                                        lg);
-    
+
+    bool bIsGenerated = file->GetIsGenerated();
+
+    auto Language = file->GetLanguage();
+
+    std::string malterlibType = getMalterlibCompileType(Language, lg);
+
+    if (file->GetPropertyAsBool("HEADER_FILE_ONLY"))
+      malterlibType = "Header";
+
+    std::string keys;
+    for (auto &key : file->GetProperties().GetKeys()) {
+      keys += " ";
+      keys += key;
+    }
+
     if (customCommand) {
-      auto &outFile = AddFileInGroup(registry, fullPath);
-      cmCustomCommandGenerator customCommandGenerator(*customCommand
-        , configName, lg);
-      auto &OutCompile = outFile.addChild("Compile", "");
+      auto &outFile = AddFileInGroup(_ProjectName, registry, fullPath);
+      cmCustomCommandGenerator customCommandGenerator(*customCommand, configName, lg);
+
+      cmMalterlibRegistry *pOutCompile = nullptr;
+      {
+        std::string launcher = this->MakeCustomLauncher(_ProjectName, lg, customCommandGenerator);
+
+        std::string commandLines;
+
+        for (unsigned i = 0; i != customCommandGenerator.GetNumberOfCommands(); ++i)
+        {
+          auto command = ConvertCommandParam(_ProjectName, lg, customCommandGenerator.GetCommand(i));
+          std::string commandLine = replaceMappedOutputFiles(_ProjectName, launcher, true);
+
+          {
+            std::string commandValue;
+
+            if (!isDynamic(command))
+              commandValue = lg->ConvertToOutputFormat(command, cmOutputConverter::SHELL);
+            else
+              commandValue = command;
+
+            cmMalterlibRegistry::addEscapeStr(commandLine, commandValue, "`\\\r\n\t", "`\\rnt", false);
+          }
+
+          customCommandGenerator.AppendArguments
+            (
+              i
+              , commandLine
+              , [&](std::string const &_Param, bool &o_bEscape) -> std::string
+              {
+                auto toReturn = ConvertCommandParam(_ProjectName, lg, _Param);
+
+                o_bEscape = !isDynamic(toReturn);
+
+                return toReturn;
+              }
+              , [&](std::string const &_Param) -> std::string
+              {
+                std::string Escaped;
+                cmMalterlibRegistry::addEscapeStr(Escaped, _Param, "`\\\r\n\t", "`\\rnt", false);
+                return Escaped;
+              }
+            )
+          ;
+
+          if (commandLines.empty())
+            commandLines = commandLine;
+          else
+          {
+            commandLines += " && ";
+            commandLines += commandLine;
+          }
+        }
+
+        if (commandLines.empty())
+          continue;
+
+        pOutCompile = &outFile.addChild("Compile", "");
+
+        pOutCompile->addChild("Custom_CommandLine", "`" + commandLines + "`").RawValue = true;
+        pOutCompile->addChild("AllowNonExisting", "true").RawValue = true;
+        if (isUtilityTarget)
+          pOutCompile->addChild("Disabled", "false").RawValue = true;
+      }
+
+      auto &OutCompile = *pOutCompile;
 
       auto WorkingDirectory = customCommandGenerator.GetWorkingDirectory();
 
       if (!malterlibType.empty())
         OutCompile.addChild("Type", malterlibType);
-      OutCompile.addChild("Custom_WorkingDirectory", 
-                          makeAbsoluteWrapper(WorkingDirectory)).RawValue = true;
+
+      std::string workingDirectory = customCommandGenerator.GetWorkingDirectory();
+      if (workingDirectory.empty())
+        workingDirectory = lg->GetCurrentBinaryDirectory();
+
+      OutCompile.addChild("Custom_WorkingDirectory", makeAbsoluteWrapper(workingDirectory)).RawValue = true;
 
       std::set<std::string> UsedOutputs;
       {
-        std::string outputs;
+        std::string outputs = "[";
+        size_t index = 0;
         for (auto &output : customCommandGenerator.GetOutputs()) {
+
+          if (StringStartsWithPath(output, "/DIR:"))
+            continue;
+
+          bool symbolic = false;
+          if (cmSourceFile *sf = pMakefile->GetSource(output))
+          {
+            if (sf->GetPropertyAsBool("SYMBOLIC"))
+            {
+              symbolic = true;
+              break;
+            }
+          }
+
+          if (symbolic)
+            continue;
 
           UsedOutputs.insert(output);
 
-          if (outputs.empty()) {
-            outputs = "[" + makeAbsoluteWrapper(output);
-          } else {
+          std::string newOutput = getMappedOutputFile(_ProjectName, output, false);
+
+          if (index > 0)
             outputs += ", ";
-            outputs += makeAbsoluteWrapper(output);
-          }
+          ++index;
+
+          outputs += makeAbsoluteWrapper(newOutput);
+        }
+        for (auto &output : customCommandGenerator.GetByproducts()) {
+          if (StringStartsWithPath(output, "/DIR:"))
+            continue;
+
+          UsedOutputs.insert(output);
+
+          std::string newOutput = getMappedOutputFile(_ProjectName, output, false);
+
+          if (index > 0)
+            outputs += ", ";
+          ++index;
+
+          outputs += makeAbsoluteWrapper(newOutput);
         }
         outputs += "]";
         OutCompile.addChild("Custom_Outputs", outputs).RawValue = true;
       }
-      
+
       std::string firstInput;
       {
-        std::string inputs;
+        std::string inputs = "[";
         size_t index = 0;
         for (auto &dependency : customCommandGenerator.GetDepends()) {
           std::string realDependency;
           if (lg->GetRealDependency(dependency, configName,
                                     realDependency)) {
+            realDependency = getMappedOutputFile(_ProjectName, realDependency, false);
             if (index == 0)
               firstInput = realDependency;
-            if (inputs.empty()) {
-              inputs = "[" + makeAbsoluteWrapper(realDependency);
-            } else {
+            else
               inputs += ", ";
-              inputs += makeAbsoluteWrapper(realDependency);
-            }
+
+            inputs += makeAbsoluteWrapper(realDependency);
             ++index;
           }
         }
         inputs += "]";
         OutCompile.addChild("Custom_Inputs", inputs).RawValue = true;
       }
+
+      if (!cmSystemTools::FileExists(fullPath) && MappedOutputFiles[_ProjectName].find(fullPath) == MappedOutputFiles[_ProjectName].end())
       {
+        ProtectedFiles.insert(fullPath);
         cmGeneratedFileStream fout(fullPath.c_str());
         fout << firstInput;
-      }
-      {
-        auto baseDir = cmSystemTools::GetEnv("CMAKE_MALTERLIB_BASEDIR");
-        auto binaryDir = lg->GetBinaryDirectory();
-        
-        std::string commandLines;
-        for (auto &commandLine :
-             customCommandGenerator.GetCC().GetCommandLines()) {
-
-          std::string newCommandLine;
-          for (auto &param : commandLine)
-          {
-            if (!newCommandLine.empty())
-              newCommandLine += " ";
-
-            if (baseDir && StringStartsWithPath(param, baseDir))
-              newCommandLine += makeAbsoluteWrapperEvalString(param);
-            else if (StringStartsWithPath(param, binaryDir.c_str()))
-              newCommandLine += makeAbsoluteWrapperEvalString(param);
-            else if (UsedOutputs.find(WorkingDirectory + "/" + param) != UsedOutputs.end())
-              newCommandLine += makeAbsoluteWrapperEvalString(WorkingDirectory + "/" + param);
-            else
-            {
-              if (param.find(" ") == std::string::npos)
-                newCommandLine += param;
-              else
-                newCommandLine += cmMalterlibRegistry::getEscaped(param, false, true);
-            }
-          }
-
-          if (commandLines.empty())
-            commandLines = newCommandLine;
-          else
-          {
-            commandLines += " && ";
-            commandLines += newCommandLine;
-          }
-        }
-        OutCompile.addChild("Custom_CommandLine", "`" + commandLines + "`").RawValue = true;
       }
       continue;
     }
 
-    if (generated && strcmp(generated->c_str(), "1") == 0)
+    if (file->GetPropertyAsBool("SYMBOLIC"))
+        continue;
+
+    if (isUtilityTarget)
     {
-      auto &outFile = AddFileInGroup(registry, fullPath);
-      outFile.addChild("Compile.AllowNonExisting", "true");
+      AddFileInGroup(_ProjectName, registry, fullPath);
+    }
+    else if (bIsGenerated)
+    {
+      auto &outFile = AddFileInGroup(_ProjectName, registry, fullPath);
+      outFile.addChild("Compile.AllowNonExisting", "true").RawValue = true;
       if (!malterlibType.empty())
         outFile.addChild("Compile.Type", malterlibType);
     }
     else
     {
-      auto &outFile = AddFileInGroup(registry, fullPath);
+      auto &outFile = AddFileInGroup(_ProjectName, registry, fullPath);
       if (!malterlibType.empty())
         outFile.addChild("Compile.Type", malterlibType);
-      else
+      else if (!Language.empty())
         outFile.addChild("Compile.Type", "None");
+      else
+        outFile.addChild("Compile.Disabled", "true").RawValue = true;
 
       std::set<std::string> defines;
       const std::string config = configName;
@@ -596,7 +937,17 @@ void cmExtraMalterlibGenerator::AddFilesToRegistry(
         std::vector<std::string> newDefines;
 
         for (auto &define : defines)
-          newDefines.push_back(cmMalterlibRegistry::getEscaped(define, true, true));
+        {
+          auto Remapped = replaceMappedOutputFiles(_ProjectName, define, true);
+          if (isDynamic(Remapped))
+          {
+            std::string Escaped;
+            cmMalterlibRegistry::addEscapeStr(Escaped, Remapped, "`\\\r\n\t", "`\\rnt", true);
+            newDefines.push_back(Escaped);
+          }
+          else
+            newDefines.push_back(cmMalterlibRegistry::getEscaped(Remapped, true, true));
+        }
 
         auto &outDefines = outFile.addChild("Compile.PreprocessorDefines",
                                             "+= [" + cmJoin(newDefines, ", ") + "]");
@@ -607,20 +958,29 @@ void cmExtraMalterlibGenerator::AddFilesToRegistry(
   }
 }
 
-void cmExtraMalterlibGenerator::AppendTarget(
-  cmMalterlibRegistry& registry,
-  cmLocalGenerator* lg, cmGeneratorTarget* target, const char* make,
-  const cmMakefile* makefile, const char* /*compiler*/,
-  bool firstTarget)
+void cmExtraMalterlibGenerator::CollectOutputFilesFromTarget(std::string const &_ProjectName, cmLocalGenerator* lg, cmGeneratorTarget* target,
+                  const char* make, const cmMakefile* makefile,
+                  const char* compiler,
+                  bool firstTarget)
 {
   if (target == nullptr)
     return;
-  
+
+  if (!target->IsInBuildSystem())
+    return;
+
+  bool isUtilityTarget = false;
+  if (target->GetType() == cmStateEnums::UTILITY ||
+      target->GetType() == cmStateEnums::INTERFACE_LIBRARY ||
+      target->GetType() == cmStateEnums::GLOBAL_TARGET) {
+    isUtilityTarget = true;
+  }
+
   std::string configName = "Debug";
-  
-  cmLocalCommonGenerator *commonGenerator = 
+
+  cmLocalCommonGenerator *commonGenerator =
     static_cast<cmLocalCommonGenerator *>(lg);
-  
+
   if (commonGenerator && !commonGenerator->GetConfigNames().empty()) {
     if (commonGenerator->GetConfigNames().size() > 1)
       lg->GetMakefile()->IssueMessage(MessageType::FATAL_ERROR,
@@ -629,85 +989,195 @@ void cmExtraMalterlibGenerator::AppendTarget(
     configName = commonGenerator->GetConfigNames()[0];
   }
 
-  auto &outputTarget = registry.addChild("%Target", GetTargetName(target));
+  std::map<std::string, cmMalterlibCompileTypeInfo> compileTypeInfo;
+
+  std::vector<cmSourceFile*> sourceFiles;
+  GetTargetFiles(sourceFiles, lg, target, makefile);
+  CollectOutputFilesFromFiles(_ProjectName, sourceFiles, configName, lg, target, isUtilityTarget);
+
+  cmTargetDependSet const& targetDependencies =
+    const_cast<cmGlobalGenerator*>(GlobalGenerator)->
+    GetTargetDirectDepends(target);
+
+  for (auto &dependency : targetDependencies) {
+    auto dependencyLocalGenerator = dependency->GetLocalGenerator();
+    if (dependency->GetName() == "global_target" || dependency->GetType() == cmStateEnums::INTERFACE_LIBRARY) {
+      continue;
+    }
+
+    if (dependency->GetType() == cmStateEnums::OBJECT_LIBRARY) {
+      if (!isUtilityTarget) {
+        std::vector<cmSourceFile*> sourceFiles;
+        GetTargetFiles(sourceFiles, dependencyLocalGenerator, &*dependency, dependencyLocalGenerator->GetMakefile());
+        CollectOutputFilesFromFiles(_ProjectName, sourceFiles,
+                           configName,
+                           dependencyLocalGenerator,
+                           &*dependency,
+                           isUtilityTarget);
+      }
+      continue;
+    }
+  }
+}
+
+void cmExtraMalterlibGenerator::AppendTarget(std::string const &_ProjectName,
+  cmMalterlibRegistry& registry,
+  cmLocalGenerator* lg, cmGeneratorTarget* target, const char* make,
+  const cmMakefile* makefile, const char* /*compiler*/,
+  bool firstTarget)
+{
+  if (target == nullptr)
+    return;
+
+
+  if (!target->IsInBuildSystem())
+    return;
+
+  bool isUtilityTarget = false;
+  if (target->GetType() == cmStateEnums::UTILITY ||
+      target->GetType() == cmStateEnums::INTERFACE_LIBRARY ||
+      target->GetType() == cmStateEnums::GLOBAL_TARGET) {
+    isUtilityTarget = true;
+  }
+
+  std::string configName = "Debug";
+
+  cmLocalCommonGenerator *commonGenerator =
+    static_cast<cmLocalCommonGenerator *>(lg);
+
+  if (commonGenerator && !commonGenerator->GetConfigNames().empty()) {
+    if (commonGenerator->GetConfigNames().size() > 1)
+      lg->GetMakefile()->IssueMessage(MessageType::FATAL_ERROR,
+        "Generator only supports one config");
+
+    configName = commonGenerator->GetConfigNames()[0];
+  }
+
+  auto &outputTarget = registry.addChild("%Target", GetTargetName(target, lg->GetProjectName()));
   outputTarget.addChild("Property.MalterlibTargetNameType", "Normal");
+  outputTarget.addChild("Compile.AllowNonExisting", "true").RawValue = true;
+  if (isUtilityTarget)
+    outputTarget.addChild("Compile.Disabled", "true").RawValue = true;
   auto &group = outputTarget.addChild("Target.Group", "External/" + lg->GetProjectName());
   group.addChild("!!Target.Group", "undefined").RawValue = true;
   outputTarget.addChild("Target.Type", GetTargetType(target));
-  outputTarget.addChild("Target.BaseName", target->GetName());
+  outputTarget.addChild("Target.BaseName", lg->GetProjectName() + "_" + target->GetName());
+  outputTarget.addChild("Target.BaseFileName", target->GetName());
 
   std::map<std::string, cmMalterlibCompileTypeInfo> compileTypeInfo;
   AddTargetCompileInfo(compileTypeInfo, target, lg, configName);
-  
-  {
+
+  if (!isUtilityTarget) {
+    AddTargetCompileInfo(compileTypeInfo, target, lg, configName);
     std::vector<cmSourceFile*> sourceFiles;
     GetTargetFiles(sourceFiles, lg, target, makefile);
-    AddFilesToRegistry(outputTarget, sourceFiles, configName, lg, target);
+    AddFilesToRegistry(_ProjectName, outputTarget, sourceFiles, configName, lg, target, false);
+  } else {
+    std::vector<cmSourceFile*> sourceFiles;
+    GetTargetFiles(sourceFiles, lg, target, makefile);
+    AddFilesToRegistry(_ProjectName, outputTarget, sourceFiles, configName, lg, target, true);
   }
-  
-  cmTargetDependSet const& targetDependencies = 
-    const_cast<cmGlobalGenerator*>(GlobalGenerator)->
-    GetTargetDirectDepends(target);
-  
-  for (auto &dependency : targetDependencies) {
-    auto dependencyLocalGenerator = dependency->GetLocalGenerator();
-    if (dependency->GetType() == cmStateEnums::INTERFACE_LIBRARY || dependency->GetName() == "global_target") {
-      continue;
-    }
-    
-    if (dependency->GetType() == cmStateEnums::OBJECT_LIBRARY) {
-      std::vector<cmSourceFile*> sourceFiles;
-      GetTargetFiles(sourceFiles, dependencyLocalGenerator, &*dependency, dependencyLocalGenerator->GetMakefile());
-      AddFilesToRegistry(outputTarget, 
-                         sourceFiles, 
-                         configName, 
-                         dependencyLocalGenerator, 
-                         &*dependency);
-      AddTargetCompileInfo(compileTypeInfo, &*dependency, dependencyLocalGenerator, configName);
-      continue;
-    }
-    auto &outputDependency = 
-      outputTarget.addChild("%Dependency", GetTargetName(dependency));
-    
-    if (!dependency.IsLink())
-      outputDependency.addChild("Dependency.Link", "false").RawValue = true;
-    else if (IsStaticLib(target) && IsStaticLib(dependency))
-      outputDependency.addChild("Dependency.Indirect", "true").RawValue = true;
-  }
-  
-  for (auto &infoMap : compileTypeInfo) {
-    auto &info = infoMap.second;
-    {
-      for (auto &path : info.Includes)
-        path = makeAbsoluteWrapper(cmSystemTools::CollapseFullPath(path));
-      auto end = cmRemoveDuplicates(info.Includes);
-      info.Includes.erase(end, info.Includes.end());
-    }
-    auto &compileOutput = outputTarget.addChild("Compile", "", true);
-    compileOutput.addChild("!!Compile.Type", infoMap.first);
-    {
-      auto &outSearchPath = compileOutput.addChild("SearchPath", "+= [" + cmJoin(info.Includes, ", ") + "]");
-      outSearchPath.RawValue = true;
-    }
-    {
-      std::vector<std::string> newDefines;
 
-      for (auto &define : info.Defines)
-        newDefines.push_back(cmMalterlibRegistry::getEscaped(define, true, true));
+  auto fAddDependencies = [&](auto &_fAddDependencies, cmGeneratorTarget const *_pTarget, bool _bOnlyObjects, mint _Depth) -> void
+    {
+      cmTargetDependSet const& targetDependencies =
+        const_cast<cmGlobalGenerator*>(GlobalGenerator)->
+        GetTargetDirectDepends(_pTarget);
 
-      auto &outDefines = compileOutput.addChild("PreprocessorDefines", "+= [" + cmJoin(newDefines, ", ") + "]");
-      outDefines.RawValue = true;
+      for (auto &dependency : targetDependencies) {
+        auto dependencyLocalGenerator = dependency->GetLocalGenerator();
+        if (dependency->GetName() == "global_target" || dependency->GetType() == cmStateEnums::INTERFACE_LIBRARY) {
+          continue;
+        }
+
+        if (dependency->GetType() == cmStateEnums::OBJECT_LIBRARY) {
+          if (!isUtilityTarget) {
+            std::vector<cmSourceFile*> sourceFiles;
+            GetTargetFiles(sourceFiles, dependencyLocalGenerator, &*dependency, dependencyLocalGenerator->GetMakefile());
+            AddFilesToRegistry(_ProjectName, outputTarget,
+                               sourceFiles,
+                               configName,
+                               dependencyLocalGenerator,
+                               &*dependency,
+                               isUtilityTarget);
+            AddTargetCompileInfo(compileTypeInfo, &*dependency, dependencyLocalGenerator, configName);
+          }
+          continue;
+        }
+        if (_bOnlyObjects)
+          continue;
+
+        auto &outputDependency =
+          outputTarget.addChild("%Dependency", GetTargetName(dependency, dependency->LocalGenerator->GetProjectName()));
+
+        if (!dependency.IsLink())
+          outputDependency.addChild("Dependency.Link", "false").RawValue = true;
+        else if (IsStaticLib(target) && IsStaticLib(dependency)) {
+          outputDependency.addChild("Dependency.Indirect", "true").RawValue = true;
+        }
+      }
     }
-    if (!info.cStd.empty()) {
-      if (infoMap.first == "C") {
-        compileOutput.addChild("CLanguage", 
-                               cmSystemTools::UpperCase(info.cStd));
-        outputTarget.addChild("Target.CLanguage", 
-                              cmSystemTools::UpperCase(info.cStd), true);
+  ;
+
+  fAddDependencies(fAddDependencies, target, false, 0);
+
+  if (!isUtilityTarget) {
+    for (auto &infoMap : compileTypeInfo) {
+      auto &info = infoMap.second;
+      {
+        for (auto &path : info.Includes)
+          path = makeAbsoluteWrapper(cmSystemTools::CollapseFullPath(path));
+        auto end = cmRemoveDuplicates(info.Includes);
+        info.Includes.erase(end, info.Includes.end());
+      }
+      auto &compileOutput = outputTarget.addChild("Compile", "", true);
+      compileOutput.addChild("!!Compile.Type", infoMap.first);
+      {
+        std::vector<std::string> NewIncludes;
+
+        for (auto &include : info.Includes)
+        {
+          NewIncludes.push_back(include);
+          if (!StringStartsWithPath(include, tempDir.c_str()))
+            continue;
+
+          if (auto found = MappedOutputDirectories[_ProjectName].find(include); found != MappedOutputDirectories[_ProjectName].end())
+            NewIncludes.push_back(makeAbsoluteWrapper(include));
+        }
+
+        auto &outSearchPath = compileOutput.addChild("SearchPath", "+= [" + cmJoin(info.Includes, ", ") + "]");
+        outSearchPath.RawValue = true;
+      }
+      {
+        std::vector<std::string> newDefines;
+
+        for (auto &define : info.Defines)
+        {
+          auto Remapped = replaceMappedOutputFiles(_ProjectName, define, true);
+          if (isDynamic(Remapped))
+          {
+            std::string Escaped;
+            cmMalterlibRegistry::addEscapeStr(Escaped, Remapped, "`\\\r\n\t", "`\\rnt", true);
+            newDefines.push_back(Escaped);
+          }
+          else
+            newDefines.push_back(cmMalterlibRegistry::getEscaped(Remapped, true, true));
+        }
+
+        auto &outDefines = compileOutput.addChild("PreprocessorDefines", "+= [" + cmJoin(newDefines, ", ") + "]");
+        outDefines.RawValue = true;
+      }
+      if (!info.cStd.empty()) {
+        if (infoMap.first == "C") {
+          compileOutput.addChild("CLanguage",
+                                 cmSystemTools::UpperCase(info.cStd));
+          outputTarget.addChild("Target.CLanguage",
+                                cmSystemTools::UpperCase(info.cStd), true);
+        }
       }
     }
   }
-  
+
   for (auto &child : outputTarget.Children) {
     if (child.Key == "%Group")
       child.pruneLoneChildren();

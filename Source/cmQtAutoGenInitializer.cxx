@@ -12,6 +12,7 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
+#include <iostream>
 
 #include <cm/algorithm>
 #include <cm/iterator>
@@ -1089,6 +1090,8 @@ bool cmQtAutoGenInitializer::InitAutogenTarget()
   if (this->Moc.Enabled) {
     this->AddGeneratedSource(this->Moc.CompilationFile, this->Moc, true);
     autogenByproducts.push_back(this->Moc.CompilationFileGenex);
+    autogenByproducts.push_back(this->AutogenTarget.SettingsFile.Default);
+    autogenByproducts.push_back(this->AutogenTarget.ParseCacheFile.Default);
   }
 
   // Compose target comment
@@ -1195,8 +1198,10 @@ bool cmQtAutoGenInitializer::InitAutogenTarget()
       this->AutogenTarget.DependFiles.begin(),
       this->AutogenTarget.DependFiles.end());
 
-    const bool useNinjaDepfile = this->QtVersion >= IntegerVersion(5, 15) &&
-      this->GlobalGen->GetName().find("Ninja") != std::string::npos;
+    dependencies.push_back(this->AutogenTarget.InfoFile);
+
+    const bool useNinjaDepfile = false; //this->QtVersion >= IntegerVersion(5, 15) &&
+      //this->GlobalGen->GetName().find("Ninja") != std::string::npos && this->GlobalGen->GetName().find("Malterlib") == std::string::npos;
     if (useNinjaDepfile) {
       // Create a custom command that generates a timestamp file and
       // has a depfile assigned. The depfile is created by JobDepFilesMergeT.
@@ -1280,6 +1285,8 @@ bool cmQtAutoGenInitializer::InitAutogenTarget()
       commandLines.clear();
       autogenComment.clear();
     }
+
+    autogenByproducts.push_back("/DIR:" + Dir.Build);
 
     // Create autogen target
     cmTarget* autogenTarget = this->LocalGen->AddUtilityCommand(
