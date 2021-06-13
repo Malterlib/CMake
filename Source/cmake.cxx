@@ -789,7 +789,7 @@ enum class ListPresets
 }
 
 // Parse the args
-void cmake::SetArgs(const std::vector<std::string>& args)
+bool cmake::SetArgs(const std::vector<std::string>& args)
 {
   bool haveToolset = false;
   bool havePlatform = false;
@@ -1165,7 +1165,7 @@ void cmake::SetArgs(const std::vector<std::string>& args)
       bool parsed = generatorCommand.parse(arg, i, args, this);
       if (!parsed && !badGeneratorName) {
         this->PrintGeneratorList();
-        return;
+        return true;
       }
       continue;
     }
@@ -1188,7 +1188,7 @@ void cmake::SetArgs(const std::vector<std::string>& args)
     // Additionally it can't be the source/binary tree location
     if (!parsedCorrectly) {
       cmSystemTools::Error("Run 'cmake --help' for all supported options.");
-      exit(1);
+      return false;
     } else if (!matched && cmHasLiteralPrefix(arg, "-")) {
       possibleUnknownArg = arg;
     } else if (!matched) {
@@ -1207,7 +1207,7 @@ void cmake::SetArgs(const std::vector<std::string>& args)
   if (!possibleUnknownArg.empty() && !scriptMode) {
     cmSystemTools::Error(cmStrCat("Unknown argument ", possibleUnknownArg));
     cmSystemTools::Error("Run 'cmake --help' for all supported options.");
-    exit(1);
+    return false;
   }
 
   // Empty instance, platform and toolset if only a generator is specified
@@ -1226,7 +1226,7 @@ void cmake::SetArgs(const std::vector<std::string>& args)
     if (profilingOutput.empty()) {
       cmSystemTools::Error(
         "--profiling-format specified but no --profiling-output!");
-      return;
+      return false;
     }
     if (profilingFormat == "google-trace"_s) {
       try {
@@ -1235,11 +1235,11 @@ void cmake::SetArgs(const std::vector<std::string>& args)
       } catch (std::runtime_error& e) {
         cmSystemTools::Error(
           cmStrCat("Could not start profiling: ", e.what()));
-        return;
+        return false;
       }
     } else {
       cmSystemTools::Error("Invalid format specified for --profiling-format");
-      return;
+      return false;
     }
   }
 #endif
@@ -1277,7 +1277,7 @@ void cmake::SetArgs(const std::vector<std::string>& args)
       cmSystemTools::Error(
         cmStrCat("Could not read presets from ", this->GetHomeDirectory(),
                  ": ", cmCMakePresetsGraph::ResultToString(result)));
-      return;
+      return false;
     }
 
     if (listPresets != ListPresets::None) {
@@ -1292,7 +1292,7 @@ void cmake::SetArgs(const std::vector<std::string>& args)
       }
 
       this->SetWorkingMode(WorkingMode::HELP_MODE);
-      return;
+      return true;
     }
 
     auto preset = presetsGraph.ConfigurePresets.find(presetName);
@@ -1301,26 +1301,26 @@ void cmake::SetArgs(const std::vector<std::string>& args)
                                     this->GetHomeDirectory(), ": \"",
                                     presetName, '"'));
       this->PrintPresetList(presetsGraph);
-      return;
+      return true;
     }
     if (preset->second.Unexpanded.Hidden) {
       cmSystemTools::Error(cmStrCat("Cannot use hidden preset in ",
                                     this->GetHomeDirectory(), ": \"",
                                     presetName, '"'));
       this->PrintPresetList(presetsGraph);
-      return;
+      return false;
     }
     auto const& expandedPreset = preset->second.Expanded;
     if (!expandedPreset) {
       cmSystemTools::Error(cmStrCat("Could not evaluate preset \"",
                                     preset->second.Unexpanded.Name,
                                     "\": Invalid macro expansion"));
-      return;
+      return false;
     }
     if (!expandedPreset->ConditionResult) {
       cmSystemTools::Error(cmStrCat("Could not use disabled preset \"",
                                     preset->second.Unexpanded.Name, "\""));
-      return;
+      return false;
     }
 
     if (!this->State->IsCacheLoaded() && !haveBArg &&
@@ -1330,7 +1330,7 @@ void cmake::SetArgs(const std::vector<std::string>& args)
     if (!this->GlobalGenerator && !expandedPreset->Generator.empty()) {
       if (!this->CreateAndSetGlobalGenerator(expandedPreset->Generator,
                                              false)) {
-        return;
+        return true;
       }
     }
     this->UnprocessedPresetVariables = expandedPreset->CacheVariables;
@@ -1388,6 +1388,8 @@ void cmake::SetArgs(const std::vector<std::string>& args)
     }
   }
 #endif
+
+	return true;
 }
 
 cmake::LogLevel cmake::StringToLogLevel(const std::string& levelStr)
@@ -2374,7 +2376,9 @@ void cmake::PreLoadCMakeFiles()
 int cmake::Run(const std::vector<std::string>& args, bool noconfigure)
 {
   // Process the arguments
-  this->SetArgs(args);
+  if (!this->SetArgs(args))
+		return -1;
+
   if (cmSystemTools::GetErrorOccuredFlag()) {
     return -1;
   }

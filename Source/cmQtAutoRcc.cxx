@@ -107,6 +107,14 @@ bool cmQtAutoRccT::InitFromInfo(InfoT const& info)
     return false;
   }
 
+  info.CollapseRelativePath(AutogenBuildDir_);
+  info.CollapseRelativePath(IncludeDir_);
+  info.CollapseRelativePath(RccExecutable_);
+  info.CollapseRelativePath(LockFile_);
+  info.CollapseRelativePath(QrcFile_);
+  info.CollapseRelativePath(RccFileName_);
+  info.CollapseRelativePath(Inputs_);
+
   // -- Derive information
   this->QrcFileName_ = cmSystemTools::GetFilenameName(this->QrcFile_);
   this->QrcFileDir_ = cmSystemTools::GetFilenamePath(this->QrcFile_);
