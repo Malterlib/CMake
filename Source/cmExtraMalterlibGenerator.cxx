@@ -642,7 +642,7 @@ void cmExtraMalterlibGenerator::CollectOutputFilesFromFiles(std::string const &_
 
 std::string cmExtraMalterlibGenerator::MakeCustomLauncher(std::string const &_ProjectName, cmLocalGenerator *localGenerator, cmCustomCommandGenerator const &ccg)
 {
-  cmProp property_value = localGenerator->GetMakefile()->GetProperty("RULE_LAUNCH_CUSTOM");
+  auto property_value = localGenerator->GetMakefile()->GetProperty("RULE_LAUNCH_CUSTOM");
 
   if (!cmNonempty(property_value)) {
     return std::string();
@@ -912,20 +912,20 @@ void cmExtraMalterlibGenerator::AddFilesToRegistry(std::string const &_ProjectNa
         lg, config, target, file->GetLanguage());
 
       const std::string COMPILE_DEFINITIONS("COMPILE_DEFINITIONS");
-      if (cmProp compile_defs = file->GetProperty(COMPILE_DEFINITIONS)) {
+      if (auto compile_defs = file->GetProperty(COMPILE_DEFINITIONS)) {
         lg->AppendDefines(
           defines, genexInterpreter.Evaluate(*compile_defs, COMPILE_DEFINITIONS));
       }
 
       std::string defPropName = "COMPILE_DEFINITIONS_";
       defPropName += cmSystemTools::UpperCase(config);
-      if (cmProp config_compile_defs = file->GetProperty(defPropName)) {
+      if (auto config_compile_defs = file->GetProperty(defPropName)) {
         lg->AppendDefines(
           defines,
           genexInterpreter.Evaluate(*config_compile_defs, COMPILE_DEFINITIONS));
       }
 
-      if (cmProp cflags = file->GetProperty("COMPILE_FLAGS")) {
+      if (auto cflags = file->GetProperty("COMPILE_FLAGS")) {
         cmGeneratorExpression ge;
         std::unique_ptr<cmCompiledGeneratorExpression> expression = ge.Parse(*cflags);
         std::string processed = expression->Evaluate(lg, configName);
