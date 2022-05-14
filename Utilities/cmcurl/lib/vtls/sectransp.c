@@ -1003,14 +1003,14 @@ CF_INLINE CFStringRef getsubject(SecCertificateRef cert)
 #else
 #if CURL_BUILD_MAC_10_7
   /* Lion & later: Get the long description if we can. */
-  if(SecCertificateCopyLongDescription)
+  if(&SecCertificateCopyLongDescription)
     server_cert_summary =
       SecCertificateCopyLongDescription(NULL, cert, NULL);
   else
 #endif /* CURL_BUILD_MAC_10_7 */
 #if CURL_BUILD_MAC_10_6
   /* Snow Leopard: Get the certificate summary. */
-  if(SecCertificateCopySubjectSummary)
+  if(&SecCertificateCopySubjectSummary)
     server_cert_summary = SecCertificateCopySubjectSummary(cert);
   else
 #endif /* CURL_BUILD_MAC_10_6 */
@@ -1124,7 +1124,7 @@ static OSStatus CopyIdentityWithLabel(char *label,
   /* SecItemCopyMatching() was introduced in iOS and Snow Leopard.
      kSecClassIdentity was introduced in Lion. If both exist, let's use them
      to find the certificate. */
-  if(SecItemCopyMatching && kSecClassIdentity) {
+  if(&SecItemCopyMatching && kSecClassIdentity) {
     CFTypeRef keys[5];
     CFTypeRef values[5];
     CFDictionaryRef query_dict;
@@ -1990,7 +1990,7 @@ static CURLcode sectransp_connect_step1(struct Curl_easy *data,
   Darwin 15.x.x is El Capitan (10.11)
   */
 #if CURL_BUILD_MAC
-  if(SSLSetSessionOption && darwinver_maj >= 13) {
+  if(&SSLSetSessionOption && darwinver_maj >= 13) {
 #else
   if(SSLSetSessionOption) {
 #endif /* CURL_BUILD_MAC */
@@ -2081,7 +2081,7 @@ static CURLcode sectransp_connect_step1(struct Curl_easy *data,
 #if CURL_BUILD_MAC_10_9 || CURL_BUILD_IOS_7
   /* We want to enable 1/n-1 when using a CBC cipher unless the user
      specifically doesn't want us doing that: */
-  if(SSLSetSessionOption) {
+  if(&SSLSetSessionOption) {
     SSLSetSessionOption(backend->ssl_ctx, kSSLSessionOptionSendOneByteRecord,
                         !SSL_SET_OPTION(enable_beast));
     SSLSetSessionOption(backend->ssl_ctx, kSSLSessionOptionFalseStart,
@@ -2966,7 +2966,7 @@ collect_server_cert(struct Curl_easy *data,
      private API and doesn't work as expected. So we have to look for
      a different symbol to make sure this code is only executed under
      Lion or later. */
-  if(SecTrustCopyPublicKey) {
+  if(&SecTrustCopyPublicKey) {
 #pragma unused(server_certs)
     err = SSLCopyPeerTrust(backend->ssl_ctx, &trust);
     /* For some reason, SSLCopyPeerTrust() can return noErr and yet return
@@ -3356,7 +3356,7 @@ static CURLcode sectransp_sha256sum(const unsigned char *tmp, /* input */
 static bool sectransp_false_start(void)
 {
 #if CURL_BUILD_MAC_10_9 || CURL_BUILD_IOS_7
-  if(SSLSetSessionOption)
+  if(&SSLSetSessionOption)
     return TRUE;
 #endif
   return FALSE;
