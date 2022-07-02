@@ -1414,7 +1414,7 @@ set_ssl_version_min_max(struct Curl_easy *data, struct connectdata *conn,
   }
 
 #if CURL_BUILD_MAC_10_8 || CURL_BUILD_IOS
-  if(SSLSetProtocolVersionMax) {
+  if(&SSLSetProtocolVersionMax) {
     SSLProtocol darwin_ver_min = kTLSProtocol1;
     SSLProtocol darwin_ver_max = kTLSProtocol1;
     CURLcode result = sectransp_version_from_curl(&darwin_ver_min,
@@ -1698,7 +1698,7 @@ static CURLcode sectransp_connect_step1(struct Curl_easy *data,
 #endif /* CURL_BUILD_MAC */
 
 #if CURL_BUILD_MAC_10_8 || CURL_BUILD_IOS
-  if(SSLCreateContext) {  /* use the newer API if available */
+  if(&SSLCreateContext) {  /* use the newer API if available */
     if(backend->ssl_ctx)
       CFRelease(backend->ssl_ctx);
     backend->ssl_ctx = SSLCreateContext(NULL, kSSLClientSide, kSSLStreamType);
@@ -1732,7 +1732,7 @@ static CURLcode sectransp_connect_step1(struct Curl_easy *data,
 
   /* check to see if we've been told to use an explicit SSL/TLS version */
 #if CURL_BUILD_MAC_10_8 || CURL_BUILD_IOS
-  if(SSLSetProtocolVersionMax) {
+  if(&SSLSetProtocolVersionMax) {
     switch(conn->ssl_config.version) {
     case CURL_SSLVERSION_TLSv1:
       (void)SSLSetProtocolVersionMin(backend->ssl_ctx, kTLSProtocol1);
@@ -3186,7 +3186,7 @@ static void sectransp_close(struct Curl_easy *data, struct connectdata *conn,
   if(backend->ssl_ctx) {
     (void)SSLClose(backend->ssl_ctx);
 #if CURL_BUILD_MAC_10_8 || CURL_BUILD_IOS
-    if(SSLCreateContext)
+    if(&SSLCreateContext)
       CFRelease(backend->ssl_ctx);
 #if CURL_SUPPORT_MAC_10_8
     else
