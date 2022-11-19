@@ -362,8 +362,8 @@ void cmExtraMalterlibGenerator::CreateNewProjectFile(std::string const &_Project
   cmMalterlibRegistry registry;
   std::string projectName = lgs[0]->GetProjectName();
 
-  auto &child = registry.addChild("Property.CMakeOutputPath_" + makeIdentifier(projectName),
-                    "define string = " + makeAbsoluteWrapper(lgs[0]->GetBinaryDirectory()));
+  auto &child = registry.addChild("Property.CMakeOutputPath_" + makeIdentifier(projectName) + ":",
+                    " string = " + makeAbsoluteWrapper(lgs[0]->GetBinaryDirectory()));
 
   child.RawKey = true;
   child.RawValue = true;
