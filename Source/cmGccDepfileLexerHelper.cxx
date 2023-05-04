@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "cmGccDepfileReaderTypes.h"
+#include "cmSystemTools.h"
 
 #include "LexerParser/cmGccDepfileLexer.h"
 
@@ -17,6 +18,22 @@
 
 #  include "cmsys/Encoding.h"
 #endif
+
+cmGccDepfileLexerHelper::cmGccDepfileLexerHelper()
+{
+  std::string replacePaths;
+  if (cmSystemTools::GetEnv("QT_TOOLS_REPLACE_PATHS", replacePaths) && !replacePaths.empty()) {
+    auto replaceSplit = cmSystemTools::SplitString(replacePaths, ';');
+    for (auto &replace : replaceSplit) {
+      if (replace.empty())
+        continue;
+      auto split = cmSystemTools::SplitString(replace, '=');
+      if (split.size() != 2)
+        continue;
+      ReplacePaths[split[0]] = split[1];
+    }
+  }
+}
 
 bool cmGccDepfileLexerHelper::readFile(const char* filePath)
 {
@@ -124,6 +141,8 @@ void cmGccDepfileLexerHelper::sanitizeContent()
       if (pit->empty()) {
         pit = it->paths.erase(pit);
       } else {
+          for (auto &mapping : ReplacePaths)
+            cmSystemTools::ReplaceString(*pit, mapping.first, mapping.second);
 #if defined(_WIN32)
         // Unescape the colon following the drive letter.
         // Some versions of GNU compilers can escape this character.
