@@ -130,7 +130,9 @@ bool cmTransformDepfile(cmDepfileFormat format, const cmLocalGenerator& lg,
       cmStrCat("Expected depfile does not exist.\n  ", infile));
   }
 
-  cmSystemTools::MakeDirectory(cmSystemTools::GetFilenamePath(outfile));
+  if (!cmSystemTools::MakeDirectory(cmSystemTools::GetFilenamePath(outfile)))
+    return false;
+
   cmsys::ofstream fout(outfile.c_str());
   if (!fout) {
     return false;

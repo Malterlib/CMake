@@ -705,6 +705,8 @@ add_library(
   cmTargetCompileFeaturesCommand.h
   cmTargetCompileOptionsCommand.cxx
   cmTargetCompileOptionsCommand.h
+  cmTargetDepend.h
+  cmTargetDepend.cxx
   cmTargetIncludeDirectoriesCommand.cxx
   cmTargetIncludeDirectoriesCommand.h
   cmTargetLinkOptionsCommand.cxx
