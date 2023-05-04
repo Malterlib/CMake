@@ -381,7 +381,7 @@ public:
   void LoadEnvironmentPresets();
 
   //! Parse command line arguments
-  void SetArgs(std::vector<std::string> const& args);
+  bool SetArgs(std::vector<std::string> const& args);
 
   //! Is this cmake running as a result of a TRY_COMPILE command
   bool GetIsInTryCompile() const;
