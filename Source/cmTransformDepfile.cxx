@@ -124,7 +124,9 @@ bool cmTransformDepfile(cmDepfileFormat format, const cmLocalGenerator& lg,
     content = *std::move(result);
   }
 
-  cmSystemTools::MakeDirectory(cmSystemTools::GetFilenamePath(outfile));
+  if (!cmSystemTools::MakeDirectory(cmSystemTools::GetFilenamePath(outfile)))
+    return false;
+
   cmsys::ofstream fout(outfile.c_str());
   if (!fout) {
     return false;

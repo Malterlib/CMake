@@ -4,6 +4,8 @@
 
 #include "cmConfigure.h" // IWYU pragma: keep
 
+#include "cmListFileCache.h"
+
 #include <set>
 
 #include "cmListFileCache.h"
@@ -31,10 +33,7 @@ public:
   operator cmGeneratorTarget const*() const { return this->Target; }
   cmGeneratorTarget const* operator->() const { return this->Target; }
   cmGeneratorTarget const& operator*() const { return *this->Target; }
-  friend bool operator<(cmTargetDepend const& l, cmTargetDepend const& r)
-  {
-    return l.Target < r.Target;
-  }
+  friend bool operator<(cmTargetDepend const& l, cmTargetDepend const& r);
   void SetType(bool strong) const
   {
     if (strong) {
