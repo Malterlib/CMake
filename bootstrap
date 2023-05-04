@@ -498,6 +498,7 @@ CMAKE_CXX_SOURCES="\
   cmTargetCompileDefinitionsCommand \
   cmTargetCompileFeaturesCommand \
   cmTargetCompileOptionsCommand \
+  cmTargetDepend \
   cmTargetIncludeDirectoriesCommand \
   cmTargetLinkLibrariesCommand \
   cmTargetLinkOptionsCommand \

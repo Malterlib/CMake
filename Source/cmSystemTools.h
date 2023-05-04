@@ -10,6 +10,7 @@
 
 #include <cstddef>
 #include <functional>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -576,6 +577,14 @@ public:
 
   /** Find the directory containing CMake executables.  */
   static void FindCMakeResources(char const* argv0);
+
+  /** Get the replacements of the markers that Malterlib writes in files of
+      import caches for paths that differ per build: MalterlibImportReplacePaths,
+      and QT_TOOLS_REPLACE_PATHS of the Malterlib Qt module.  Each is a list of
+      <marker>=<path> separated by ';'.  */
+  static std::map<std::string, std::string> GetMalterlibReplacePaths();
+  static void ReplaceMalterlibPaths(
+    std::string& string, std::map<std::string, std::string> const& replacePaths);
 
   /** Thrown by Exit while the thread has an ExitExceptionScope.  */
   struct ExitException

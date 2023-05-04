@@ -116,9 +116,20 @@ cmInstrumentation::cmInstrumentation(std::string const& binary_dir,
   }
 }
 
+// Malterlib builds imports itself, from caches that are committed, so instrumentation applies neither to generating an import
+// nor to the commands of its build
+static bool IsMalterlibImport()
+{
+  return cmSystemTools::HasEnv("CMAKE_MALTERLIB_TEMPDIR") ||
+    cmSystemTools::HasEnv("MalterlibImportReplacePaths");
+}
+
 void cmInstrumentation::LoadQueries()
 {
   this->ResetQueries();
+  if (IsMalterlibImport()) {
+    return;
+  }
   auto const readJSONQueries = [this](std::string const& dir) {
     if (cmSystemTools::FileIsDirectory(dir) && this->ReadJSONQueries(dir)) {
       this->hasQuery = true;
@@ -212,6 +223,10 @@ void cmInstrumentation::WriteJSONQuery(
   std::set<cmInstrumentationQuery::Hook> const& hooks_,
   std::vector<std::vector<std::string>> const& callbacks_)
 {
+  if (IsMalterlibImport()) {
+    return;
+  }
+
   Json::Value root;
   root["options"] = Json::arrayValue;
   for (auto const& option : options_) {

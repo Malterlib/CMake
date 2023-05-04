@@ -15,6 +15,7 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
+#include <iostream>
 
 #include <cm/algorithm>
 #include <cm/iterator>
@@ -1399,6 +1400,10 @@ bool cmQtAutoGenInitializer::InitAutogenTarget()
 
   // Determine whether to use a depfile for the AUTOGEN target.
   bool const useDepfile = [this]() -> bool {
+    // A Malterlib import builds autogen from its cache, without the depfile
+    if (cmSystemTools::HasEnv("CMAKE_MALTERLIB_TEMPDIR")) {
+      return false;
+    }
     auto const& gen = this->GlobalGen->GetName();
     return this->QtVersion >= IntegerVersion(5, 15) &&
       (gen.find("Ninja") != std::string::npos ||
@@ -1505,6 +1510,12 @@ bool cmQtAutoGenInitializer::InitAutogenTarget()
           }
         }
       }
+    }
+    // Outputs that a Malterlib import maps. For other generators they stay undeclared, as the command that writes them
+    // depends on whether autogen uses a depfile.
+    if (cmSystemTools::HasEnv("CMAKE_MALTERLIB_TEMPDIR")) {
+      autogenByproducts.push_back(this->AutogenTarget.SettingsFile.Default);
+      autogenByproducts.push_back(this->AutogenTarget.ParseCacheFile.Default);
     }
   }
 
@@ -1670,6 +1681,9 @@ bool cmQtAutoGenInitializer::InitAutogenTarget()
     std::vector<std::string> dependencies(
       this->AutogenTarget.DependFiles.begin(),
       this->AutogenTarget.DependFiles.end());
+
+    dependencies.push_back(this->AutogenTarget.InfoFile);
+
     if (useDepfile) {
       // Create a custom command that generates a timestamp file and
       // has a depfile assigned. The depfile is created by JobDepFilesMergeT.
@@ -1706,6 +1720,10 @@ bool cmQtAutoGenInitializer::InitAutogenTarget()
         // Make '/timestamp' file depend on '_autogen_timestamp_deps'.
         dependencies.clear();
         dependencies.push_back(timestampTargetName);
+        // The settings, such as the moc options, are in the info file, which
+        // reconfiguring can change without changing a list file of the
+        // depfile.
+        dependencies.push_back(this->AutogenTarget.InfoFile);
       }
 
       // Make '/timestamp' file depend on the moc and uic executables
@@ -1769,6 +1787,11 @@ bool cmQtAutoGenInitializer::InitAutogenTarget()
       dependencies.emplace_back(std::move(outputFile));
       commandLines.clear();
       autogenComment.clear();
+    }
+
+    // For a Malterlib import, which maps the directory of the outputs. The marker is no file for other generators.
+    if (cmSystemTools::HasEnv("CMAKE_MALTERLIB_TEMPDIR")) {
+      autogenByproducts.push_back("/DIR:" + Dir.Build);
     }
 
     if (attachToOrigin) {

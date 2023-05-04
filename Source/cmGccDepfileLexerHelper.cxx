@@ -16,6 +16,11 @@
 #  include "cmsys/String.h"
 #endif
 
+cmGccDepfileLexerHelper::cmGccDepfileLexerHelper()
+  : ReplacePaths(cmSystemTools::GetMalterlibReplacePaths())
+{
+}
+
 bool cmGccDepfileLexerHelper::readFile(char const* filePath)
 {
   FILE* file = cmsys::SystemTools::Fopen(filePath, "rb");
@@ -116,6 +121,7 @@ void cmGccDepfileLexerHelper::sanitizeContent()
       if (pit->empty()) {
         pit = it->paths.erase(pit);
       } else {
+        cmSystemTools::ReplaceMalterlibPaths(*pit, ReplacePaths);
 #if defined(_WIN32)
         // Unescape the colon following the drive letter.
         // Some versions of GNU compilers can escape this character.
