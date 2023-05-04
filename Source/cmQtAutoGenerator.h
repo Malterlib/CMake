@@ -96,10 +96,7 @@ public:
   class InfoT
   {
   public:
-    InfoT(cmQtAutoGenerator& gen)
-      : Gen_(gen)
-    {
-    }
+    InfoT(cmQtAutoGenerator& gen);
 
     /** Read json data from a stream.  */
     bool Read(std::istream& istr);
@@ -135,11 +132,16 @@ public:
     bool LogError(GenT genType, cm::string_view message) const;
     bool LogError(cm::string_view message) const;
 
+    void CollapseRelativePath(std::string &string) const;
+    void CollapseRelativePath(std::vector<std::string> &list) const;
+    void CollapseRelativePath(std::unordered_set<std::string> &set) const;
+
   private:
     std::string ConfigKey(cm::string_view key) const;
 
     Json::Value Json_;
     cmQtAutoGenerator& Gen_;
+    std::map<std::string, std::string> ReplacePaths;
   };
 
   // -- Settings file

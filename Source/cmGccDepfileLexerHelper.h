@@ -3,13 +3,14 @@
 #pragma once
 
 #include <utility>
+#include <map>
 
 #include <cmGccDepfileReaderTypes.h>
 
 class cmGccDepfileLexerHelper
 {
 public:
-  cmGccDepfileLexerHelper() = default;
+  cmGccDepfileLexerHelper();
 
   bool readFile(const char* filePath);
   cmGccDepfileContent extractContent() && { return std::move(this->Content); }
@@ -33,6 +34,7 @@ private:
     Failed,
   };
   State HelperState = State::Rule;
+  std::map<std::string, std::string> ReplacePaths;
 };
 
 #define YY_EXTRA_TYPE cmGccDepfileLexerHelper*
