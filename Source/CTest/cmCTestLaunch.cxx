@@ -135,6 +135,9 @@ bool cmCTestLaunch::ParseArguments(int argc, char const* const* argv)
       this->Reporter.OptionOutput =
         std::string(std::istreambuf_iterator<char>(file),
                     std::istreambuf_iterator<char>());
+      // Malterlib import caches hold the file with markers for the paths
+      cmSystemTools::ReplaceMalterlibPaths(
+        this->Reporter.OptionOutput, cmSystemTools::GetMalterlibReplacePaths());
       doing = DoingNone;
     } else if (doing == DoingSource) {
       this->Reporter.OptionSource = arg;

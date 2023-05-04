@@ -35,6 +35,8 @@
 #include "cmSystemTools.h"
 #include "cmWorkerPool.h"
 
+#include <iostream>
+
 #if defined(__APPLE__)
 #  include <unistd.h>
 #endif
@@ -2205,7 +2207,7 @@ void cmQtAutoMocUicT::JobCompileMocT::Process()
                                    this->MessagePath(sourceFile), "\ninto\n  ",
                                    this->MessagePath(outputFile), '\n',
                                    includers, result.ErrorMessage),
-                          cmd, result.StdOut);
+                          cmd, result.StdOut + result.StdErr);
     return;
   }
 
@@ -2567,6 +2569,7 @@ bool cmQtAutoMocUicT::InitSourceEntries(InfoT const& info, SourceFileKind kind)
     }
 
     std::string name = entryName.asString();
+    info.CollapseRelativePath(name);
     std::string flags = entryFlags.asString();
     if (testEntry(flags.size() == 2, "Invalid flags string size")) {
       return false;
@@ -2681,6 +2684,17 @@ bool cmQtAutoMocUicT::InitFromInfo(InfoT const& info)
     }
   }
 
+  info.CollapseRelativePath(BaseConst_.AutogenBuildDir);
+  info.CollapseRelativePath(BaseConst_.AutogenIncludeDir);
+  info.CollapseRelativePath(BaseConst_.CMakeExecutable);
+  info.CollapseRelativePath(BaseConst_.ParseCacheFile);
+  info.CollapseRelativePath(BaseConst_.DepFile);
+  info.CollapseRelativePath(BaseConst_.DepFileRuleName);
+  info.CollapseRelativePath(SettingsFile_);
+  info.CollapseRelativePath(BaseConst_.ListFiles);
+  info.CollapseRelativePath(MocConst_.Executable);
+  info.CollapseRelativePath(UicConst_.Executable);
+
   // -- Checks
   if (!this->BaseConst_.CMakeExecutableTime.Load(
         this->BaseConst_.CMakeExecutable)) {
@@ -2727,6 +2741,20 @@ bool cmQtAutoMocUicT::InitFromInfo(InfoT const& info)
         !info.GetArray("MOC_DEPEND_FILTERS", tmp.DependFilters, false)) {
       return false;
     }
+
+    {
+      std::string extraSearchPaths;
+      if (cmSystemTools::GetEnv("QT_TOOLS_EXTRA_SEARCH_PATHS", extraSearchPaths) && !extraSearchPaths.empty()) {
+        auto pathsSplit = cmSystemTools::SplitString(extraSearchPaths, ';');
+        for (auto &path : pathsSplit)
+          MocConst_.IncludePaths.push_back(path);
+      }
+    }
+
+    info.CollapseRelativePath(MocConst_.IncludePaths);
+    info.CollapseRelativePath(MocConst_.CompFileAbs);
+    info.CollapseRelativePath(MocConst_.PredefsCmd);
+    info.CollapseRelativePath(MocConst_.PredefsFileAbs);
 
     // -- Evaluate settings
     for (std::string const& item : tmp.MacroNames) {
@@ -2804,6 +2832,10 @@ bool cmQtAutoMocUicT::InitFromInfo(InfoT const& info)
         !info.GetArrayConfig("UIC_OPTIONS", this->UicConst_.Options, false)) {
       return false;
     }
+
+    info.CollapseRelativePath(UicConst_.SkipList);
+    info.CollapseRelativePath(UicConst_.SearchPaths);
+
     // .ui files
     {
       Json::Value const& val = info.GetValue("UIC_UI_FILES");
@@ -2835,7 +2867,10 @@ bool cmQtAutoMocUicT::InitFromInfo(InfoT const& info)
           return false;
         }
 
-        auto& uiFile = this->UicConst_.UiFiles[entryName.asString()];
+        auto entryNameCollapsed = entryName.asString();
+        info.CollapseRelativePath(entryNameCollapsed);
+
+        auto& uiFile = this->UicConst_.UiFiles[entryNameCollapsed];
         InfoT::GetJsonArray(uiFile.Options, entryOptions);
       }
     }

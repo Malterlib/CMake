@@ -1028,7 +1028,7 @@ void cmake::LoadEnvironmentPresets()
 }
 
 // Parse the args
-void cmake::SetArgs(std::vector<std::string> const& args)
+bool cmake::SetArgs(std::vector<std::string> const& args)
 {
   this->cmdArgs = args;
   bool haveToolset = false;
@@ -1520,7 +1520,7 @@ void cmake::SetArgs(std::vector<std::string> const& args)
       bool parsed = generatorCommand.parse(arg, i, args, this);
       if (!parsed && !badGeneratorName) {
         this->PrintGeneratorList();
-        return;
+        return true;
       }
       continue;
     }
@@ -1543,7 +1543,7 @@ void cmake::SetArgs(std::vector<std::string> const& args)
     // Additionally it can't be the source/binary tree location
     if (!parsedCorrectly) {
       cmSystemTools::Error("Run 'cmake --help' for all supported options.");
-      exit(1);
+      return false;
     }
     if (!matched) {
       if (cmHasPrefix(arg, '-')) {
@@ -1570,7 +1570,7 @@ void cmake::SetArgs(std::vector<std::string> const& args)
     }
     cmSystemTools::Error(error);
     cmSystemTools::Error("Run 'cmake --help' for all supported options.");
-    exit(1);
+    return false;
   }
 
   // Empty instance, platform and toolset if only a generator is specified
@@ -1589,7 +1589,7 @@ void cmake::SetArgs(std::vector<std::string> const& args)
     if (profilingOutput.empty()) {
       cmSystemTools::Error(
         "--profiling-format specified but no --profiling-output!");
-      return;
+      return false;
     }
     if (profilingFormat == "google-trace"_s) {
       try {
@@ -1598,11 +1598,11 @@ void cmake::SetArgs(std::vector<std::string> const& args)
       } catch (std::runtime_error& e) {
         cmSystemTools::Error(
           cmStrCat("Could not start profiling: ", e.what()));
-        return;
+        return false;
       }
     } else {
       cmSystemTools::Error("Invalid format specified for --profiling-format");
-      return;
+      return false;
     }
   }
 #endif
@@ -1642,6 +1642,8 @@ void cmake::SetArgs(std::vector<std::string> const& args)
     this->SetArgsFromPreset(presetsArgs, haveBArg);
   }
 #endif
+
+  return true;
 }
 
 namespace {
@@ -3140,7 +3142,9 @@ int cmake::HandleDifferentSystemEnvironmentId(std::string envId,
 int cmake::Run(std::vector<std::string> const& args, bool noconfigure)
 {
   // Process the arguments
-  this->SetArgs(args);
+  if (!this->SetArgs(args))
+    return -1;
+
   if (cmSystemTools::GetErrorOccurredFlag()) {
     return -1;
   }
