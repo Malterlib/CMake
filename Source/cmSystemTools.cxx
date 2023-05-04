@@ -3157,7 +3157,87 @@ void FindCMakeResourcesInBuildTree(std::string const& exe_dir)
 void cmSystemTools::FindCMakeResources(char const* argv0)
 {
   std::string exe = FindOwnExecutable(argv0);
-#ifdef CMAKE_BOOTSTRAP
+#ifdef CMAKE_MALTERLIB_EXEFS
+  CExeFS ExeFS;
+  if (!fg_OpenExeFS(ExeFS)) {
+    cmSystemToolsCMakeRoot = "Failed to open ExeFS";
+    return;
+  }
+
+  // Run as MToolCTest, cmake is the MToolCMake beside it, and both use the CMakeRoot extracted for MToolCMake. The names
+  // are compared without case, as MTool does, for the file systems that open them in any case.
+  auto fCMakeProgramPath = [](CStr const &_ProgramPath) -> CStr {
+    if (CFile::fs_GetFileNoExt(_ProgramPath).f_CmpNoCase("MToolCTest") != 0)
+      return _ProgramPath;
+    CStr Extension = CFile::fs_GetExtension(_ProgramPath);
+    return CFile::fs_GetPath(_ProgramPath) / ("MToolCMake" + (Extension.f_IsEmpty() ? CStr() : "." + Extension));
+  };
+
+  cmSystemToolsCMakeCommand = fCMakeProgramPath(CFile::fs_GetProgramPath()).f_GetStr();
+  std::string exe_dir = CFile::fs_GetProgramDirectory().f_GetStr();
+
+  try {
+    CUniversallyUniqueIdentifier UUIDNamespace(
+      "{EF53758B-02E4-4DE4-88CC-43513C7F6E2E}");
+
+    CUniversallyUniqueIdentifier UUID{
+      EUniversallyUniqueIdentifierGenerate_StringHash
+      , UUIDNamespace, fCMakeProgramPath(CFile::fs_GetProgramPath()).f_LowerCase()};
+
+    CStr CacheDirectory = CFile::fs_GetPath(CFile::fs_GetUserLocalProgramCacheDirectory()) / "MToolCMake";
+    CStr CmakeRoot = fg_Format("{}/{}/CMakeRoot", CacheDirectory,
+      UUID.f_GetAsString(EUniversallyUniqueIdentifierFormat_AlphaNum));
+
+    CFile::fs_CreateDirectory(CmakeRoot);
+
+    CFileSystemInterface_VirtualFS MalterlibFS(ExeFS.m_FileSystem);
+    CFileSystemInterface_Disk DiskFS;
+
+    auto SourceWriteTime = MalterlibFS.f_GetWriteTime("");
+    CTimeConvert::fs_RoundTimeToSecondDown(SourceWriteTime);
+    auto WriteTime = DiskFS.f_GetWriteTime(CmakeRoot);
+    CTimeConvert::fs_RoundTimeToSecondDown(WriteTime);
+
+    do {
+      if (SourceWriteTime != WriteTime) {
+        CClock Clock{true};
+        CLockFile LockFile{CmakeRoot + "/Update.lock"};
+        switch (LockFile.f_Lock(100.0))
+        {
+        case CLockFile::ELockResult_Locked:
+            break;
+        case CLockFile::ELockResult_DoesNotExist:
+          DMibError("Lock file does not exists");
+        case CLockFile::ELockResult_NoAccess:
+          DMibError("No access to lock file");
+        case CLockFile::ELockResult_TimedOut:
+          DMibError("Timed out locking update lock");
+        default:
+          DMibError("Unknown error locking lock file");
+        }
+
+        WriteTime = DiskFS.f_GetWriteTime(CmakeRoot);
+        CTimeConvert::fs_RoundTimeToSecondDown(WriteTime);
+        if (SourceWriteTime == WriteTime)
+          break;
+
+        MalterlibFS.f_CopyFilesWithAttribs("*", DiskFS, CmakeRoot);
+        DiskFS.f_SetWriteTime(CmakeRoot, SourceWriteTime);
+        cmSystemTools::Message(fg_Format(
+          "-- Update of CMakeRoot at '{}' from ExeFS took {fe1} s",
+          CmakeRoot, Clock.f_GetTime()).f_GetStr());
+      }
+    } while (false);
+
+    cmSystemToolsCMakeRoot = CmakeRoot.f_GetStr();
+    // The CMakeRoot extracted from ExeFS is no installation, whose prefix would be searched for packages
+    cmSystemToolsCMakeInBuildTree = true;
+  } catch (NException::CException const &_Error) {
+    cmSystemToolsCMakeRoot = ("Failed to extract ExeFS: " +
+      _Error.f_GetErrorStr()).f_GetStr();
+    return;
+  }
+#elif defined(CMAKE_BOOTSTRAP)
   // The bootstrap cmake knows its resource locations.
   cmSystemToolsCMakeRoot = CMAKE_BOOTSTRAP_SOURCE_DIR;
   cmSystemToolsCMakeInBuildTree = true;
@@ -3188,8 +3268,16 @@ void cmSystemTools::FindCMakeResources(char const* argv0)
   cmSystemToolsCMakeCommand =
     cmStrCat(exe_dir, "/cmake", cmSystemTools::GetExecutableExtension());
 #endif
+#ifdef CMAKE_MALTERLIB_EXEFS
+  // MTool, which embeds CMake, runs ctest when started as MToolCTest. A standalone cmake has its ctest beside it.
+  CStr ProgramName = CFile::fs_GetFileNoExt(CFile::fs_GetOriginalProgramPath());
+  bool bMTool = ProgramName.f_CmpNoCase("MToolCMake") == 0 || ProgramName.f_CmpNoCase("MToolCTest") == 0;
+  cmSystemToolsCTestCommand = cmStrCat(exe_dir, bMTool ? "/MToolCTest" : "/ctest",
+                                       cmSystemTools::GetExecutableExtension());
+#else
   cmSystemToolsCTestCommand =
     cmStrCat(exe_dir, "/ctest", cmSystemTools::GetExecutableExtension());
+#endif
   cmSystemToolsCPackCommand =
     cmStrCat(exe_dir, "/cpack", cmSystemTools::GetExecutableExtension());
   cmSystemToolsCMakeGUICommand =
@@ -3260,6 +3348,39 @@ cmSystemTools::AbortOnExit::AbortOnExit()
 cmSystemTools::AbortOnExit::~AbortOnExit()
 {
   --cmSystemToolsAbortOnExitCount;
+}
+
+std::map<std::string, std::string> cmSystemTools::GetMalterlibReplacePaths()
+{
+  std::map<std::string, std::string> replacePaths;
+  // The general variable comes last, so its replacements win
+  for (char const* variable :
+       { "QT_TOOLS_REPLACE_PATHS", "MalterlibImportReplacePaths" }) {
+    std::string value;
+    if (!cmSystemTools::GetEnv(variable, value) || value.empty()) {
+      continue;
+    }
+    for (std::string const& replace : cmSystemTools::SplitString(value, ';')) {
+      if (replace.empty()) {
+        continue;
+      }
+      // Paths can contain =, so only the first separates
+      std::string::size_type iSeparator = replace.find('=');
+      if (iSeparator == std::string::npos) {
+        continue;
+      }
+      replacePaths[replace.substr(0, iSeparator)] = replace.substr(iSeparator + 1);
+    }
+  }
+  return replacePaths;
+}
+
+void cmSystemTools::ReplaceMalterlibPaths(
+  std::string& string, std::map<std::string, std::string> const& replacePaths)
+{
+  for (auto const& mapping : replacePaths) {
+    cmSystemTools::ReplaceString(string, mapping.first, mapping.second);
+  }
 }
 
 std::string const& cmSystemTools::GetCTestCommand()

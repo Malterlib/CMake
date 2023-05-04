@@ -215,6 +215,12 @@ cmQtAutoGenerator::cmQtAutoGenerator(GenT genType)
 
 cmQtAutoGenerator::~cmQtAutoGenerator() = default;
 
+cmQtAutoGenerator::InfoT::InfoT(cmQtAutoGenerator& gen)
+  : Gen_(gen)
+  , ReplacePaths(cmSystemTools::GetMalterlibReplacePaths())
+{
+}
+
 bool cmQtAutoGenerator::InfoT::Read(std::istream& istr)
 {
   try {
@@ -243,6 +249,34 @@ bool cmQtAutoGenerator::InfoT::GetJsonArray(std::vector<std::string>& list,
     }
   }
   return picked;
+}
+
+void cmQtAutoGenerator::InfoT::CollapseRelativePath(std::string &string) const
+{
+  cmSystemTools::ReplaceMalterlibPaths(string, ReplacePaths);
+
+  if (!cmSystemTools::StringStartsWith(string.c_str(), "../"))
+    return;
+  string = cmSystemTools::CollapseFullPath(string, this->Gen_.InfoDir());
+}
+
+void cmQtAutoGenerator::InfoT::CollapseRelativePath(std::vector<std::string> &list) const
+{
+  for (auto &string : list)
+    CollapseRelativePath(string);
+}
+
+void cmQtAutoGenerator::InfoT::CollapseRelativePath(std::unordered_set<std::string> &set) const
+{
+  std::unordered_set<std::string> returnSet;
+  for (auto &string : set)
+  {
+    std::string toCollapse = string;
+    CollapseRelativePath(toCollapse);
+    returnSet.insert(toCollapse);
+  }
+
+  set = std::move(returnSet);
 }
 
 bool cmQtAutoGenerator::InfoT::GetJsonArray(
@@ -487,6 +521,12 @@ bool cmQtAutoGenerator::Run(cm::string_view infoFile, cm::string_view config,
                           this->ProjectDirs_.CurrentBinary, true)) {
         return false;
       }
+
+      info.CollapseRelativePath(ProjectDirs_.Source);
+      info.CollapseRelativePath(ProjectDirs_.Binary);
+      info.CollapseRelativePath(ProjectDirs_.CurrentSource);
+      info.CollapseRelativePath(ProjectDirs_.CurrentBinary);
+
       this->Logger_.RaiseVerbosity(verbosity);
     }
 
