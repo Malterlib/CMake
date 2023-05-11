@@ -90,6 +90,9 @@ public:
   bool HasUniqueByproducts(std::vector<std::string> const& byproducts,
                            cmListFileBacktrace const& bt);
 
+  std::set<cmGeneratorTarget*> const* GetTargetsForCustomCommand(
+    cmCustomCommand const* customCommand);
+
 protected:
   std::string ConvertToIncludeReference(
     std::string const& path, cmOutputConverter::OutputFormat format) override;
