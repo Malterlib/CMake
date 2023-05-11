@@ -1,6 +1,7 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
    file Copyright.txt or https://cmake.org/licensing for details.  */
 #include "cmExtraMalterlibGenerator.h"
+#include "cmLocalNinjaGenerator.h"
 #include "cmMalterlibRegistry.h"
 #include "cmSystemTools.h"
 #include "cmCustomCommand.h"
@@ -608,15 +609,18 @@ void cmExtraMalterlibGenerator::CollectOutputFilesFromFiles(std::string const &_
     std::string fullPath = file->GetFullPath();
     if (customCommand)
     {
+      if (CustomCommandIsInDependency(lg, target, customCommand))
+        continue;
+
       cmCustomCommandGenerator customCommandGenerator(*customCommand, configName, lg);
 
       if (customCommandGenerator.GetCC().GetCommandLines().empty())
         continue;
 
-			auto depFile = customCommandGenerator.GetInternalDepfile();
+      auto depFile = customCommandGenerator.GetInternalDepfile();
 
-			if (!depFile.empty())
-				fAddOutput(depFile);
+      if (!depFile.empty())
+        fAddOutput(depFile);
 
       for (auto &output : customCommandGenerator.GetOutputs())
       {
@@ -688,6 +692,25 @@ std::string cmExtraMalterlibGenerator::ConvertCommandParam(std::string const &_P
   return param;
 }
 
+bool cmExtraMalterlibGenerator::CustomCommandIsInDependency(cmLocalGenerator *lg, const cmGeneratorTarget* target, cmCustomCommand* customCommand) {
+  cmLocalNinjaGenerator *ninjaGenerator = static_cast<cmLocalNinjaGenerator *>(lg);
+  auto *customCommandTargets = ninjaGenerator->GetTargetsForCustomCommand(customCommand);
+  if (customCommandTargets) {
+    cmTargetDependSet const& targetDependencies = const_cast<cmGlobalGenerator*>(GlobalGenerator)->GetTargetDirectDepends(target);
+    for (auto &dependency : targetDependencies) {
+      for (auto &target : *customCommandTargets) {
+        cmGeneratorTarget const *customCommandTarget = target;
+        cmGeneratorTarget const *dependencyTarget = dependency;
+        if (customCommandTarget == dependencyTarget) {
+          return true;
+        }
+      }
+    }
+  }
+
+  return false;
+}
+
 void cmExtraMalterlibGenerator::AddFilesToRegistry(std::string const &_ProjectName,
   cmMalterlibRegistry& registry,
   std::vector<cmSourceFile*> const &sourceFiles,
@@ -722,6 +745,9 @@ void cmExtraMalterlibGenerator::AddFilesToRegistry(std::string const &_ProjectNa
     }
 
     if (customCommand) {
+      if (CustomCommandIsInDependency(lg, target, customCommand))
+        continue;
+
       auto &outFile = AddFileInGroup(_ProjectName, registry, fullPath);
       cmCustomCommandGenerator customCommandGenerator(*customCommand, configName, lg);
 
