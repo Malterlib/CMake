@@ -99,6 +99,9 @@ public:
   std::string GetLinkDependencyFile(cmGeneratorTarget* target,
                                     std::string const& config) const override;
 
+  std::set<cmGeneratorTarget*> const* GetTargetsForCustomCommand(
+    cmCustomCommand const* customCommand);
+
 protected:
   std::string ConvertToIncludeReference(
     std::string const& path, cmOutputConverter::OutputFormat format) override;

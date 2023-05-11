@@ -77,6 +77,8 @@ private:
     cmLocalGenerator* lg, const cmGeneratorTarget* target,
     const cmMakefile* makefile);
 
+  bool CustomCommandIsInDependency(cmLocalGenerator *lg, const cmGeneratorTarget* target, cmCustomCommand* customCommand);
+
   void AddFilesToRegistry(std::string const &_ProjectName, 
     cmMalterlibRegistry& registry, 
     std::vector<cmSourceFile*> const &sourceFiles,

@@ -878,6 +878,16 @@ void cmLocalNinjaGenerator::AddCustomCommandTarget(cmCustomCommand const* cc,
   ins.first->second.insert(target);
 }
 
+std::set<cmGeneratorTarget*> const* cmLocalNinjaGenerator::
+  GetTargetsForCustomCommand(cmCustomCommand const* customCommand)
+{
+  auto i = this->CustomCommandTargets.find(customCommand);
+  if (i != this->CustomCommandTargets.end())
+    return &i->second;
+
+  return nullptr;
+}
+
 void cmLocalNinjaGenerator::WriteCustomCommandBuildStatements(
   const std::string& fileConfig)
 {
