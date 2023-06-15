@@ -3,6 +3,7 @@
 #pragma once
 
 #include "cmConfigure.h" // IWYU pragma: keep
+#include "cmGlobalGenerator.h"
 
 #include <iosfwd>
 #include <memory>
