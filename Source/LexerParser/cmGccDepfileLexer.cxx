@@ -661,6 +661,8 @@ static const flex_int16_t yy_chk[57] =
 #endif
 
 /* Holds the entire state of the reentrant scanner. */
+namespace
+{
 struct yyguts_t
     {
 
@@ -693,7 +695,7 @@ struct yyguts_t
     int yy_more_len;
 
     }; /* end struct yyguts_t */
-
+}
 static int yy_init_globals ( yyscan_t yyscanner );
 
 int yylex_init (yyscan_t* scanner);
