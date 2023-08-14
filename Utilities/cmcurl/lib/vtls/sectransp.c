@@ -2426,6 +2426,7 @@ static CURLcode pkp_pin_peer_pubkey(struct Curl_easy *data,
     OSStatus ret;
     SecKeyRef keyRef;
     OSStatus success;
+    (void)success;
 
     ret = SSLCopyPeerTrust(ctx, &trust);
     if(ret != noErr || !trust)
