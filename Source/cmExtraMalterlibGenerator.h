@@ -9,8 +9,6 @@
 #include "cmExternalMakefileProjectGenerator.h"
 #include "cmMalterlibRegistry.h"
 
-#include <cmsys/String.hxx>
-
 #include <map>
 #include <set>
 #include <string>
