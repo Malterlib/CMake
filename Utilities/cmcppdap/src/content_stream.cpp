@@ -117,7 +117,7 @@ bool ContentReader::match(const uint8_t* seq, size_t len) {
     }
   }
 
-  matched_idx += len;
+  matched_idx += (uint32_t)len;
   return true;
 }
 

@@ -692,6 +692,411 @@ std::string ToString(bool isTrue)
 };
 }
 
+using path_commands_map = std::unordered_map<cm::string_view,
+      std::function<std::string(cmGeneratorExpressionContext*,
+                                const GeneratorExpressionContent*,
+                                Arguments&)>>;
+
+static std::string processList(std::string const& arg,
+        std::function<void(std::string&)> transform)
+{
+    cmList list{ arg };
+    std::for_each(list.begin(), list.end(), std::move(transform));
+    return list.to_string();
+};
+
+static path_commands_map getPathCommands()
+{
+    return {
+    { "GET_ROOT_NAME"_s,
+        [](cmGeneratorExpressionContext* ctx,
+            const GeneratorExpressionContent* cnt,
+            Arguments& args) -> std::string {
+        if (CheckPathParameters(ctx, cnt, "GET_ROOT_NAME"_s, args) &&
+            !args.front().empty()) {
+            return processList(args.front(), [](std::string& value) {
+            value = cmCMakePath{ value }.GetRootName().String();
+            });
+        }
+        return std::string{};
+        } },
+    { "GET_ROOT_DIRECTORY"_s,
+        [](cmGeneratorExpressionContext* ctx,
+            const GeneratorExpressionContent* cnt,
+            Arguments& args) -> std::string {
+        if (CheckPathParameters(ctx, cnt, "GET_ROOT_DIRECTORY"_s, args) &&
+            !args.front().empty()) {
+            return processList(args.front(), [](std::string& value) {
+            value = cmCMakePath{ value }.GetRootDirectory().String();
+            });
+        }
+        return std::string{};
+        } },
+    { "GET_ROOT_PATH"_s,
+        [](cmGeneratorExpressionContext* ctx,
+            const GeneratorExpressionContent* cnt,
+            Arguments& args) -> std::string {
+        if (CheckPathParameters(ctx, cnt, "GET_ROOT_PATH"_s, args) &&
+            !args.front().empty()) {
+            return processList(args.front(), [](std::string& value) {
+            value = cmCMakePath{ value }.GetRootPath().String();
+            });
+        }
+        return std::string{};
+        } },
+    { "GET_FILENAME"_s,
+        [](cmGeneratorExpressionContext* ctx,
+            const GeneratorExpressionContent* cnt,
+            Arguments& args) -> std::string {
+        if (CheckPathParameters(ctx, cnt, "GET_FILENAME"_s, args) &&
+            !args.front().empty()) {
+            return processList(args.front(), [](std::string& value) {
+            value = cmCMakePath{ value }.GetFileName().String();
+            });
+        }
+        return std::string{};
+        } },
+    { "GET_EXTENSION"_s,
+        [](cmGeneratorExpressionContext* ctx,
+            const GeneratorExpressionContent* cnt,
+            Arguments& args) -> std::string {
+        bool lastOnly = args.front() == "LAST_ONLY"_s;
+        if (lastOnly) {
+            args.advance(1);
+        }
+        if (CheckPathParametersEx(ctx, cnt,
+                                    lastOnly ? "GET_EXTENSION,LAST_ONLY"_s
+                                            : "GET_EXTENSION"_s,
+                                    args.size())) {
+            if (args.front().empty()) {
+            return std::string{};
+            }
+            if (lastOnly) {
+            return processList(args.front(), [](std::string& value) {
+                value = cmCMakePath{ value }.GetExtension().String();
+            });
+            }
+            return processList(args.front(), [](std::string& value) {
+            value = cmCMakePath{ value }.GetWideExtension().String();
+            });
+        }
+        return std::string{};
+        } },
+    { "GET_STEM"_s,
+        [](cmGeneratorExpressionContext* ctx,
+            const GeneratorExpressionContent* cnt,
+            Arguments& args) -> std::string {
+        bool lastOnly = args.front() == "LAST_ONLY"_s;
+        if (lastOnly) {
+            args.advance(1);
+        }
+        if (CheckPathParametersEx(
+                ctx, cnt, lastOnly ? "GET_STEM,LAST_ONLY"_s : "GET_STEM"_s,
+                args.size())) {
+            if (args.front().empty()) {
+            return std::string{};
+            }
+            if (lastOnly) {
+            return processList(args.front(), [](std::string& value) {
+                value = cmCMakePath{ value }.GetStem().String();
+            });
+            }
+            return processList(args.front(), [](std::string& value) {
+            value = cmCMakePath{ value }.GetNarrowStem().String();
+            });
+        }
+        return std::string{};
+        } },
+    { "GET_RELATIVE_PART"_s,
+        [](cmGeneratorExpressionContext* ctx,
+            const GeneratorExpressionContent* cnt,
+            Arguments& args) -> std::string {
+        if (CheckPathParameters(ctx, cnt, "GET_RELATIVE_PART"_s, args) &&
+            !args.front().empty()) {
+            return processList(args.front(), [](std::string& value) {
+            value = cmCMakePath{ value }.GetRelativePath().String();
+            });
+        }
+        return std::string{};
+        } },
+    { "GET_PARENT_PATH"_s,
+        [](cmGeneratorExpressionContext* ctx,
+            const GeneratorExpressionContent* cnt,
+            Arguments& args) -> std::string {
+        if (CheckPathParameters(ctx, cnt, "GET_PARENT_PATH"_s, args)) {
+            return processList(args.front(), [](std::string& value) {
+            value = cmCMakePath{ value }.GetParentPath().String();
+            });
+        }
+        return std::string{};
+        } },
+    { "HAS_ROOT_NAME"_s,
+        [](cmGeneratorExpressionContext* ctx,
+            const GeneratorExpressionContent* cnt,
+            Arguments& args) -> std::string {
+        return CheckPathParameters(ctx, cnt, "HAS_ROOT_NAME"_s, args)
+            ? ToString(cmCMakePath{ args.front() }.HasRootName())
+            : std::string{ "0" };
+        } },
+    { "HAS_ROOT_DIRECTORY"_s,
+        [](cmGeneratorExpressionContext* ctx,
+            const GeneratorExpressionContent* cnt,
+            Arguments& args) -> std::string {
+        return CheckPathParameters(ctx, cnt, "HAS_ROOT_DIRECTORY"_s, args)
+            ? ToString(cmCMakePath{ args.front() }.HasRootDirectory())
+            : std::string{ "0" };
+        } },
+    { "HAS_ROOT_PATH"_s,
+        [](cmGeneratorExpressionContext* ctx,
+            const GeneratorExpressionContent* cnt,
+            Arguments& args) -> std::string {
+        return CheckPathParameters(ctx, cnt, "HAS_ROOT_PATH"_s, args)
+            ? ToString(cmCMakePath{ args.front() }.HasRootPath())
+            : std::string{ "0" };
+        } },
+    { "HAS_FILENAME"_s,
+        [](cmGeneratorExpressionContext* ctx,
+            const GeneratorExpressionContent* cnt,
+            Arguments& args) -> std::string {
+        return CheckPathParameters(ctx, cnt, "HAS_FILENAME"_s, args)
+            ? ToString(cmCMakePath{ args.front() }.HasFileName())
+            : std::string{ "0" };
+        } },
+    { "HAS_EXTENSION"_s,
+        [](cmGeneratorExpressionContext* ctx,
+            const GeneratorExpressionContent* cnt,
+            Arguments& args) -> std::string {
+        return CheckPathParameters(ctx, cnt, "HAS_EXTENSION"_s, args) &&
+            !args.front().empty()
+            ? ToString(cmCMakePath{ args.front() }.HasExtension())
+            : std::string{ "0" };
+        } },
+    { "HAS_STEM"_s,
+        [](cmGeneratorExpressionContext* ctx,
+            const GeneratorExpressionContent* cnt,
+            Arguments& args) -> std::string {
+        return CheckPathParameters(ctx, cnt, "HAS_STEM"_s, args)
+            ? ToString(cmCMakePath{ args.front() }.HasStem())
+            : std::string{ "0" };
+        } },
+    { "HAS_RELATIVE_PART"_s,
+        [](cmGeneratorExpressionContext* ctx,
+            const GeneratorExpressionContent* cnt,
+            Arguments& args) -> std::string {
+        return CheckPathParameters(ctx, cnt, "HAS_RELATIVE_PART"_s, args)
+            ? ToString(cmCMakePath{ args.front() }.HasRelativePath())
+            : std::string{ "0" };
+        } },
+    { "HAS_PARENT_PATH"_s,
+        [](cmGeneratorExpressionContext* ctx,
+            const GeneratorExpressionContent* cnt,
+            Arguments& args) -> std::string {
+        return CheckPathParameters(ctx, cnt, "HAS_PARENT_PATH"_s, args)
+            ? ToString(cmCMakePath{ args.front() }.HasParentPath())
+            : std::string{ "0" };
+        } },
+    { "IS_ABSOLUTE"_s,
+        [](cmGeneratorExpressionContext* ctx,
+            const GeneratorExpressionContent* cnt,
+            Arguments& args) -> std::string {
+        return CheckPathParameters(ctx, cnt, "IS_ABSOLUTE"_s, args)
+            ? ToString(cmCMakePath{ args.front() }.IsAbsolute())
+            : std::string{ "0" };
+        } },
+    { "IS_RELATIVE"_s,
+        [](cmGeneratorExpressionContext* ctx,
+            const GeneratorExpressionContent* cnt,
+            Arguments& args) -> std::string {
+        return CheckPathParameters(ctx, cnt, "IS_RELATIVE"_s, args)
+            ? ToString(cmCMakePath{ args.front() }.IsRelative())
+            : std::string{ "0" };
+        } },
+    { "IS_PREFIX"_s,
+        [](cmGeneratorExpressionContext* ctx,
+            const GeneratorExpressionContent* cnt,
+            Arguments& args) -> std::string {
+        bool normalize = args.front() == "NORMALIZE"_s;
+        if (normalize) {
+            args.advance(1);
+        }
+        if (CheckPathParametersEx(ctx, cnt,
+                                    normalize ? "IS_PREFIX,NORMALIZE"_s
+                                            : "IS_PREFIX"_s,
+                                    args.size(), 2)) {
+            if (normalize) {
+            return ToString(cmCMakePath{ args[0] }.Normal().IsPrefix(
+                cmCMakePath{ args[1] }.Normal()));
+            }
+            return ToString(
+            cmCMakePath{ args[0] }.IsPrefix(cmCMakePath{ args[1] }));
+        }
+        return std::string{};
+        } },
+    { "CMAKE_PATH"_s,
+        [](cmGeneratorExpressionContext* ctx,
+            const GeneratorExpressionContent* cnt,
+            Arguments& args) -> std::string {
+        bool normalize = args.front() == "NORMALIZE"_s;
+        if (normalize) {
+            args.advance(1);
+        }
+        if (CheckPathParametersEx(ctx, cnt,
+                                    normalize ? "CMAKE_PATH,NORMALIZE"_s
+                                            : "CMAKE_PATH"_s,
+                                    args.size(), 1)) {
+            return processList(
+            args.front(), [normalize](std::string& value) {
+                auto path = cmCMakePath{ value, cmCMakePath::auto_format };
+                value = normalize ? path.Normal().GenericString()
+                                : path.GenericString();
+            });
+        }
+        return std::string{};
+        } },
+    { "APPEND"_s,
+        [](cmGeneratorExpressionContext* ctx,
+            const GeneratorExpressionContent* cnt,
+            Arguments& args) -> std::string {
+        if (CheckPathParametersEx(ctx, cnt, "APPEND"_s, args.size(), 1,
+                                    false)) {
+            auto const& list = args.front();
+            args.advance(1);
+
+            return processList(list, [&args](std::string& value) {
+            cmCMakePath path{ value };
+            for (const auto& p : args) {
+                path /= p;
+            }
+            value = path.String();
+            });
+        }
+        return std::string{};
+        } },
+    { "REMOVE_FILENAME"_s,
+        [](cmGeneratorExpressionContext* ctx,
+            const GeneratorExpressionContent* cnt,
+            Arguments& args) -> std::string {
+        if (CheckPathParameters(ctx, cnt, "REMOVE_FILENAME"_s, args) &&
+            !args.front().empty()) {
+            return processList(args.front(), [](std::string& value) {
+            value = cmCMakePath{ value }.RemoveFileName().String();
+            });
+        }
+        return std::string{};
+        } },
+    { "REPLACE_FILENAME"_s,
+        [](cmGeneratorExpressionContext* ctx,
+            const GeneratorExpressionContent* cnt,
+            Arguments& args) -> std::string {
+        if (CheckPathParameters(ctx, cnt, "REPLACE_FILENAME"_s, args, 2)) {
+            return processList(args.front(), [&args](std::string& value) {
+            value = cmCMakePath{ value }
+                        .ReplaceFileName(cmCMakePath{ args[1] })
+                        .String();
+            });
+        }
+        return std::string{};
+        } },
+    { "REMOVE_EXTENSION"_s,
+        [](cmGeneratorExpressionContext* ctx,
+            const GeneratorExpressionContent* cnt,
+            Arguments& args) -> std::string {
+        bool lastOnly = args.front() == "LAST_ONLY"_s;
+        if (lastOnly) {
+            args.advance(1);
+        }
+        if (CheckPathParametersEx(ctx, cnt,
+                                    lastOnly ? "REMOVE_EXTENSION,LAST_ONLY"_s
+                                            : "REMOVE_EXTENSION"_s,
+                                    args.size())) {
+            if (args.front().empty()) {
+            return std::string{};
+            }
+            if (lastOnly) {
+            return processList(args.front(), [](std::string& value) {
+                value = cmCMakePath{ value }.RemoveExtension().String();
+            });
+            }
+            return processList(args.front(), [](std::string& value) {
+            value = cmCMakePath{ value }.RemoveWideExtension().String();
+            });
+        }
+        return std::string{};
+        } },
+    { "REPLACE_EXTENSION"_s,
+        [](cmGeneratorExpressionContext* ctx,
+            const GeneratorExpressionContent* cnt,
+            Arguments& args) -> std::string {
+        bool lastOnly = args.front() == "LAST_ONLY"_s;
+        if (lastOnly) {
+            args.advance(1);
+        }
+        if (CheckPathParametersEx(ctx, cnt,
+                                    lastOnly
+                                    ? "REPLACE_EXTENSION,LAST_ONLY"_s
+                                    : "REPLACE_EXTENSION"_s,
+                                    args.size(), 2)) {
+            if (lastOnly) {
+            return processList(args.front(), [&args](std::string& value) {
+                value = cmCMakePath{ value }
+                        .ReplaceExtension(cmCMakePath{ args[1] })
+                        .String();
+            });
+            }
+            return processList(args.front(), [&args](std::string& value) {
+            value = cmCMakePath{ value }
+                        .ReplaceWideExtension(cmCMakePath{ args[1] })
+                        .String();
+            });
+        }
+        return std::string{};
+        } },
+    { "NORMAL_PATH"_s,
+        [](cmGeneratorExpressionContext* ctx,
+            const GeneratorExpressionContent* cnt,
+            Arguments& args) -> std::string {
+        if (CheckPathParameters(ctx, cnt, "NORMAL_PATH"_s, args) &&
+            !args.front().empty()) {
+            return processList(args.front(), [](std::string& value) {
+            value = cmCMakePath{ value }.Normal().String();
+            });
+        }
+        return std::string{};
+        } },
+    { "RELATIVE_PATH"_s,
+        [](cmGeneratorExpressionContext* ctx,
+            const GeneratorExpressionContent* cnt,
+            Arguments& args) -> std::string {
+        if (CheckPathParameters(ctx, cnt, "RELATIVE_PATH"_s, args, 2)) {
+            return processList(args.front(), [&args](std::string& value) {
+            value = cmCMakePath{ value }.Relative(args[1]).String();
+            });
+        }
+        return std::string{};
+        } },
+    { "ABSOLUTE_PATH"_s,
+        [](cmGeneratorExpressionContext* ctx,
+            const GeneratorExpressionContent* cnt,
+            Arguments& args) -> std::string {
+        bool normalize = args.front() == "NORMALIZE"_s;
+        if (normalize) {
+            args.advance(1);
+        }
+        if (CheckPathParametersEx(ctx, cnt,
+                                    normalize ? "ABSOLUTE_PATH,NORMALIZE"_s
+                                            : "ABSOLUTE_PATH"_s,
+                                    args.size(), 2)) {
+            return processList(
+            args.front(), [&args, normalize](std::string& value) {
+                auto path = cmCMakePath{ value }.Absolute(args[1]);
+                value = normalize ? path.Normal().String() : path.String();
+            });
+        }
+        return std::string{};
+        } }
+    };
+}
+
 static const struct PathNode : public cmGeneratorExpressionNode
 {
   PathNode() {} // NOLINT(modernize-use-equals-default)
@@ -706,407 +1111,7 @@ static const struct PathNode : public cmGeneratorExpressionNode
     const GeneratorExpressionContent* content,
     cmGeneratorExpressionDAGChecker* /*dagChecker*/) const override
   {
-    static auto processList =
-      [](std::string const& arg,
-         std::function<void(std::string&)> transform) -> std::string {
-      cmList list{ arg };
-      std::for_each(list.begin(), list.end(), std::move(transform));
-      return list.to_string();
-    };
-
-    static std::unordered_map<
-      cm::string_view,
-      std::function<std::string(cmGeneratorExpressionContext*,
-                                const GeneratorExpressionContent*,
-                                Arguments&)>>
-      pathCommands{
-        { "GET_ROOT_NAME"_s,
-          [](cmGeneratorExpressionContext* ctx,
-             const GeneratorExpressionContent* cnt,
-             Arguments& args) -> std::string {
-            if (CheckPathParameters(ctx, cnt, "GET_ROOT_NAME"_s, args) &&
-                !args.front().empty()) {
-              return processList(args.front(), [](std::string& value) {
-                value = cmCMakePath{ value }.GetRootName().String();
-              });
-            }
-            return std::string{};
-          } },
-        { "GET_ROOT_DIRECTORY"_s,
-          [](cmGeneratorExpressionContext* ctx,
-             const GeneratorExpressionContent* cnt,
-             Arguments& args) -> std::string {
-            if (CheckPathParameters(ctx, cnt, "GET_ROOT_DIRECTORY"_s, args) &&
-                !args.front().empty()) {
-              return processList(args.front(), [](std::string& value) {
-                value = cmCMakePath{ value }.GetRootDirectory().String();
-              });
-            }
-            return std::string{};
-          } },
-        { "GET_ROOT_PATH"_s,
-          [](cmGeneratorExpressionContext* ctx,
-             const GeneratorExpressionContent* cnt,
-             Arguments& args) -> std::string {
-            if (CheckPathParameters(ctx, cnt, "GET_ROOT_PATH"_s, args) &&
-                !args.front().empty()) {
-              return processList(args.front(), [](std::string& value) {
-                value = cmCMakePath{ value }.GetRootPath().String();
-              });
-            }
-            return std::string{};
-          } },
-        { "GET_FILENAME"_s,
-          [](cmGeneratorExpressionContext* ctx,
-             const GeneratorExpressionContent* cnt,
-             Arguments& args) -> std::string {
-            if (CheckPathParameters(ctx, cnt, "GET_FILENAME"_s, args) &&
-                !args.front().empty()) {
-              return processList(args.front(), [](std::string& value) {
-                value = cmCMakePath{ value }.GetFileName().String();
-              });
-            }
-            return std::string{};
-          } },
-        { "GET_EXTENSION"_s,
-          [](cmGeneratorExpressionContext* ctx,
-             const GeneratorExpressionContent* cnt,
-             Arguments& args) -> std::string {
-            bool lastOnly = args.front() == "LAST_ONLY"_s;
-            if (lastOnly) {
-              args.advance(1);
-            }
-            if (CheckPathParametersEx(ctx, cnt,
-                                      lastOnly ? "GET_EXTENSION,LAST_ONLY"_s
-                                               : "GET_EXTENSION"_s,
-                                      args.size())) {
-              if (args.front().empty()) {
-                return std::string{};
-              }
-              if (lastOnly) {
-                return processList(args.front(), [](std::string& value) {
-                  value = cmCMakePath{ value }.GetExtension().String();
-                });
-              }
-              return processList(args.front(), [](std::string& value) {
-                value = cmCMakePath{ value }.GetWideExtension().String();
-              });
-            }
-            return std::string{};
-          } },
-        { "GET_STEM"_s,
-          [](cmGeneratorExpressionContext* ctx,
-             const GeneratorExpressionContent* cnt,
-             Arguments& args) -> std::string {
-            bool lastOnly = args.front() == "LAST_ONLY"_s;
-            if (lastOnly) {
-              args.advance(1);
-            }
-            if (CheckPathParametersEx(
-                  ctx, cnt, lastOnly ? "GET_STEM,LAST_ONLY"_s : "GET_STEM"_s,
-                  args.size())) {
-              if (args.front().empty()) {
-                return std::string{};
-              }
-              if (lastOnly) {
-                return processList(args.front(), [](std::string& value) {
-                  value = cmCMakePath{ value }.GetStem().String();
-                });
-              }
-              return processList(args.front(), [](std::string& value) {
-                value = cmCMakePath{ value }.GetNarrowStem().String();
-              });
-            }
-            return std::string{};
-          } },
-        { "GET_RELATIVE_PART"_s,
-          [](cmGeneratorExpressionContext* ctx,
-             const GeneratorExpressionContent* cnt,
-             Arguments& args) -> std::string {
-            if (CheckPathParameters(ctx, cnt, "GET_RELATIVE_PART"_s, args) &&
-                !args.front().empty()) {
-              return processList(args.front(), [](std::string& value) {
-                value = cmCMakePath{ value }.GetRelativePath().String();
-              });
-            }
-            return std::string{};
-          } },
-        { "GET_PARENT_PATH"_s,
-          [](cmGeneratorExpressionContext* ctx,
-             const GeneratorExpressionContent* cnt,
-             Arguments& args) -> std::string {
-            if (CheckPathParameters(ctx, cnt, "GET_PARENT_PATH"_s, args)) {
-              return processList(args.front(), [](std::string& value) {
-                value = cmCMakePath{ value }.GetParentPath().String();
-              });
-            }
-            return std::string{};
-          } },
-        { "HAS_ROOT_NAME"_s,
-          [](cmGeneratorExpressionContext* ctx,
-             const GeneratorExpressionContent* cnt,
-             Arguments& args) -> std::string {
-            return CheckPathParameters(ctx, cnt, "HAS_ROOT_NAME"_s, args)
-              ? ToString(cmCMakePath{ args.front() }.HasRootName())
-              : std::string{ "0" };
-          } },
-        { "HAS_ROOT_DIRECTORY"_s,
-          [](cmGeneratorExpressionContext* ctx,
-             const GeneratorExpressionContent* cnt,
-             Arguments& args) -> std::string {
-            return CheckPathParameters(ctx, cnt, "HAS_ROOT_DIRECTORY"_s, args)
-              ? ToString(cmCMakePath{ args.front() }.HasRootDirectory())
-              : std::string{ "0" };
-          } },
-        { "HAS_ROOT_PATH"_s,
-          [](cmGeneratorExpressionContext* ctx,
-             const GeneratorExpressionContent* cnt,
-             Arguments& args) -> std::string {
-            return CheckPathParameters(ctx, cnt, "HAS_ROOT_PATH"_s, args)
-              ? ToString(cmCMakePath{ args.front() }.HasRootPath())
-              : std::string{ "0" };
-          } },
-        { "HAS_FILENAME"_s,
-          [](cmGeneratorExpressionContext* ctx,
-             const GeneratorExpressionContent* cnt,
-             Arguments& args) -> std::string {
-            return CheckPathParameters(ctx, cnt, "HAS_FILENAME"_s, args)
-              ? ToString(cmCMakePath{ args.front() }.HasFileName())
-              : std::string{ "0" };
-          } },
-        { "HAS_EXTENSION"_s,
-          [](cmGeneratorExpressionContext* ctx,
-             const GeneratorExpressionContent* cnt,
-             Arguments& args) -> std::string {
-            return CheckPathParameters(ctx, cnt, "HAS_EXTENSION"_s, args) &&
-                !args.front().empty()
-              ? ToString(cmCMakePath{ args.front() }.HasExtension())
-              : std::string{ "0" };
-          } },
-        { "HAS_STEM"_s,
-          [](cmGeneratorExpressionContext* ctx,
-             const GeneratorExpressionContent* cnt,
-             Arguments& args) -> std::string {
-            return CheckPathParameters(ctx, cnt, "HAS_STEM"_s, args)
-              ? ToString(cmCMakePath{ args.front() }.HasStem())
-              : std::string{ "0" };
-          } },
-        { "HAS_RELATIVE_PART"_s,
-          [](cmGeneratorExpressionContext* ctx,
-             const GeneratorExpressionContent* cnt,
-             Arguments& args) -> std::string {
-            return CheckPathParameters(ctx, cnt, "HAS_RELATIVE_PART"_s, args)
-              ? ToString(cmCMakePath{ args.front() }.HasRelativePath())
-              : std::string{ "0" };
-          } },
-        { "HAS_PARENT_PATH"_s,
-          [](cmGeneratorExpressionContext* ctx,
-             const GeneratorExpressionContent* cnt,
-             Arguments& args) -> std::string {
-            return CheckPathParameters(ctx, cnt, "HAS_PARENT_PATH"_s, args)
-              ? ToString(cmCMakePath{ args.front() }.HasParentPath())
-              : std::string{ "0" };
-          } },
-        { "IS_ABSOLUTE"_s,
-          [](cmGeneratorExpressionContext* ctx,
-             const GeneratorExpressionContent* cnt,
-             Arguments& args) -> std::string {
-            return CheckPathParameters(ctx, cnt, "IS_ABSOLUTE"_s, args)
-              ? ToString(cmCMakePath{ args.front() }.IsAbsolute())
-              : std::string{ "0" };
-          } },
-        { "IS_RELATIVE"_s,
-          [](cmGeneratorExpressionContext* ctx,
-             const GeneratorExpressionContent* cnt,
-             Arguments& args) -> std::string {
-            return CheckPathParameters(ctx, cnt, "IS_RELATIVE"_s, args)
-              ? ToString(cmCMakePath{ args.front() }.IsRelative())
-              : std::string{ "0" };
-          } },
-        { "IS_PREFIX"_s,
-          [](cmGeneratorExpressionContext* ctx,
-             const GeneratorExpressionContent* cnt,
-             Arguments& args) -> std::string {
-            bool normalize = args.front() == "NORMALIZE"_s;
-            if (normalize) {
-              args.advance(1);
-            }
-            if (CheckPathParametersEx(ctx, cnt,
-                                      normalize ? "IS_PREFIX,NORMALIZE"_s
-                                                : "IS_PREFIX"_s,
-                                      args.size(), 2)) {
-              if (normalize) {
-                return ToString(cmCMakePath{ args[0] }.Normal().IsPrefix(
-                  cmCMakePath{ args[1] }.Normal()));
-              }
-              return ToString(
-                cmCMakePath{ args[0] }.IsPrefix(cmCMakePath{ args[1] }));
-            }
-            return std::string{};
-          } },
-        { "CMAKE_PATH"_s,
-          [](cmGeneratorExpressionContext* ctx,
-             const GeneratorExpressionContent* cnt,
-             Arguments& args) -> std::string {
-            bool normalize = args.front() == "NORMALIZE"_s;
-            if (normalize) {
-              args.advance(1);
-            }
-            if (CheckPathParametersEx(ctx, cnt,
-                                      normalize ? "CMAKE_PATH,NORMALIZE"_s
-                                                : "CMAKE_PATH"_s,
-                                      args.size(), 1)) {
-              return processList(
-                args.front(), [normalize](std::string& value) {
-                  auto path = cmCMakePath{ value, cmCMakePath::auto_format };
-                  value = normalize ? path.Normal().GenericString()
-                                    : path.GenericString();
-                });
-            }
-            return std::string{};
-          } },
-        { "APPEND"_s,
-          [](cmGeneratorExpressionContext* ctx,
-             const GeneratorExpressionContent* cnt,
-             Arguments& args) -> std::string {
-            if (CheckPathParametersEx(ctx, cnt, "APPEND"_s, args.size(), 1,
-                                      false)) {
-              auto const& list = args.front();
-              args.advance(1);
-
-              return processList(list, [&args](std::string& value) {
-                cmCMakePath path{ value };
-                for (const auto& p : args) {
-                  path /= p;
-                }
-                value = path.String();
-              });
-            }
-            return std::string{};
-          } },
-        { "REMOVE_FILENAME"_s,
-          [](cmGeneratorExpressionContext* ctx,
-             const GeneratorExpressionContent* cnt,
-             Arguments& args) -> std::string {
-            if (CheckPathParameters(ctx, cnt, "REMOVE_FILENAME"_s, args) &&
-                !args.front().empty()) {
-              return processList(args.front(), [](std::string& value) {
-                value = cmCMakePath{ value }.RemoveFileName().String();
-              });
-            }
-            return std::string{};
-          } },
-        { "REPLACE_FILENAME"_s,
-          [](cmGeneratorExpressionContext* ctx,
-             const GeneratorExpressionContent* cnt,
-             Arguments& args) -> std::string {
-            if (CheckPathParameters(ctx, cnt, "REPLACE_FILENAME"_s, args, 2)) {
-              return processList(args.front(), [&args](std::string& value) {
-                value = cmCMakePath{ value }
-                          .ReplaceFileName(cmCMakePath{ args[1] })
-                          .String();
-              });
-            }
-            return std::string{};
-          } },
-        { "REMOVE_EXTENSION"_s,
-          [](cmGeneratorExpressionContext* ctx,
-             const GeneratorExpressionContent* cnt,
-             Arguments& args) -> std::string {
-            bool lastOnly = args.front() == "LAST_ONLY"_s;
-            if (lastOnly) {
-              args.advance(1);
-            }
-            if (CheckPathParametersEx(ctx, cnt,
-                                      lastOnly ? "REMOVE_EXTENSION,LAST_ONLY"_s
-                                               : "REMOVE_EXTENSION"_s,
-                                      args.size())) {
-              if (args.front().empty()) {
-                return std::string{};
-              }
-              if (lastOnly) {
-                return processList(args.front(), [](std::string& value) {
-                  value = cmCMakePath{ value }.RemoveExtension().String();
-                });
-              }
-              return processList(args.front(), [](std::string& value) {
-                value = cmCMakePath{ value }.RemoveWideExtension().String();
-              });
-            }
-            return std::string{};
-          } },
-        { "REPLACE_EXTENSION"_s,
-          [](cmGeneratorExpressionContext* ctx,
-             const GeneratorExpressionContent* cnt,
-             Arguments& args) -> std::string {
-            bool lastOnly = args.front() == "LAST_ONLY"_s;
-            if (lastOnly) {
-              args.advance(1);
-            }
-            if (CheckPathParametersEx(ctx, cnt,
-                                      lastOnly
-                                        ? "REPLACE_EXTENSION,LAST_ONLY"_s
-                                        : "REPLACE_EXTENSION"_s,
-                                      args.size(), 2)) {
-              if (lastOnly) {
-                return processList(args.front(), [&args](std::string& value) {
-                  value = cmCMakePath{ value }
-                            .ReplaceExtension(cmCMakePath{ args[1] })
-                            .String();
-                });
-              }
-              return processList(args.front(), [&args](std::string& value) {
-                value = cmCMakePath{ value }
-                          .ReplaceWideExtension(cmCMakePath{ args[1] })
-                          .String();
-              });
-            }
-            return std::string{};
-          } },
-        { "NORMAL_PATH"_s,
-          [](cmGeneratorExpressionContext* ctx,
-             const GeneratorExpressionContent* cnt,
-             Arguments& args) -> std::string {
-            if (CheckPathParameters(ctx, cnt, "NORMAL_PATH"_s, args) &&
-                !args.front().empty()) {
-              return processList(args.front(), [](std::string& value) {
-                value = cmCMakePath{ value }.Normal().String();
-              });
-            }
-            return std::string{};
-          } },
-        { "RELATIVE_PATH"_s,
-          [](cmGeneratorExpressionContext* ctx,
-             const GeneratorExpressionContent* cnt,
-             Arguments& args) -> std::string {
-            if (CheckPathParameters(ctx, cnt, "RELATIVE_PATH"_s, args, 2)) {
-              return processList(args.front(), [&args](std::string& value) {
-                value = cmCMakePath{ value }.Relative(args[1]).String();
-              });
-            }
-            return std::string{};
-          } },
-        { "ABSOLUTE_PATH"_s,
-          [](cmGeneratorExpressionContext* ctx,
-             const GeneratorExpressionContent* cnt,
-             Arguments& args) -> std::string {
-            bool normalize = args.front() == "NORMALIZE"_s;
-            if (normalize) {
-              args.advance(1);
-            }
-            if (CheckPathParametersEx(ctx, cnt,
-                                      normalize ? "ABSOLUTE_PATH,NORMALIZE"_s
-                                                : "ABSOLUTE_PATH"_s,
-                                      args.size(), 2)) {
-              return processList(
-                args.front(), [&args, normalize](std::string& value) {
-                  auto path = cmCMakePath{ value }.Absolute(args[1]);
-                  value = normalize ? path.Normal().String() : path.String();
-                });
-            }
-            return std::string{};
-          } }
-      };
+    static path_commands_map pathCommands{getPathCommands()};
 
     if (cm::contains(pathCommands, parameters.front())) {
       auto args = Arguments{ parameters }.advance(1);
