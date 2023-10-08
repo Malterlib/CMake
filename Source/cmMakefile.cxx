@@ -1214,7 +1214,7 @@ cmTarget* cmMakefile::AddCustomCommandToTarget(
   // Dispatch command creation to allow generator expressions in outputs.
   this->AddGeneratorAction(
     std::move(cc),
-    [=](cmLocalGenerator& lg, const cmListFileBacktrace& lfbt,
+    [=, this](cmLocalGenerator& lg, const cmListFileBacktrace& lfbt,
         std::unique_ptr<cmCustomCommand> tcc) {
       BacktraceGuard guard(this->Backtrace, lfbt);
       tcc->SetBacktrace(lfbt);
@@ -1253,7 +1253,7 @@ void cmMakefile::AddCustomCommandToOutput(
   // Dispatch command creation to allow generator expressions in outputs.
   this->AddGeneratorAction(
     std::move(cc),
-    [=](cmLocalGenerator& lg, const cmListFileBacktrace& lfbt,
+    [=, this](cmLocalGenerator& lg, const cmListFileBacktrace& lfbt,
         std::unique_ptr<cmCustomCommand> tcc) {
       BacktraceGuard guard(this->Backtrace, lfbt);
       tcc->SetBacktrace(lfbt);
@@ -1340,7 +1340,7 @@ void cmMakefile::AppendCustomCommandToOutput(
   if (this->ValidateCustomCommand(commandLines)) {
     // Dispatch command creation to allow generator expressions in outputs.
     this->AddGeneratorAction(
-      [=](cmLocalGenerator& lg, const cmListFileBacktrace& lfbt) {
+      [=, this](cmLocalGenerator& lg, const cmListFileBacktrace& lfbt) {
         BacktraceGuard guard(this->Backtrace, lfbt);
         detail::AppendCustomCommandToOutput(lg, lfbt, output, depends,
                                             implicit_depends, commandLines);
@@ -1371,7 +1371,7 @@ cmTarget* cmMakefile::AddUtilityCommand(const std::string& utilityName,
   // Dispatch command creation to allow generator expressions in outputs.
   this->AddGeneratorAction(
     std::move(cc),
-    [=](cmLocalGenerator& lg, const cmListFileBacktrace& lfbt,
+    [=, this](cmLocalGenerator& lg, const cmListFileBacktrace& lfbt,
         std::unique_ptr<cmCustomCommand> tcc) {
       BacktraceGuard guard(this->Backtrace, lfbt);
       tcc->SetBacktrace(lfbt);

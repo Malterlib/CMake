@@ -340,13 +340,13 @@ class Impl : public dap::Session {
       return {};
     }
 
-    return [=] {
+    return [=, this] {
       handler(
           data,
-          [=](const dap::TypeInfo* typeinfo, const void* data) {
+          [=, this](const dap::TypeInfo* typeinfo, const void* data) {
             // onSuccess
             dap::json::Serializer s;
-            s.object([&](dap::FieldSerializer* fs) {
+            s.object([&, this](dap::FieldSerializer* fs) {
               return fs->field("seq", dap::integer(nextSeq++)) &&
                      fs->field("type", "response") &&
                      fs->field("request_seq", sequence) &&
@@ -362,10 +362,10 @@ class Impl : public dap::Session {
               handler(data, nullptr);
             }
           },
-          [=](const dap::TypeInfo* typeinfo, const dap::Error& error) {
+          [=, this](const dap::TypeInfo* typeinfo, const dap::Error& error) {
             // onError
             dap::json::Serializer s;
-            s.object([&](dap::FieldSerializer* fs) {
+            s.object([&, this](dap::FieldSerializer* fs) {
               return fs->field("seq", dap::integer(nextSeq++)) &&
                      fs->field("type", "response") &&
                      fs->field("request_seq", sequence) &&
