@@ -71,6 +71,7 @@ namespace
         prefix = "Dll_" + projectName + "_";
         break;
       case cmStateEnums::UTILITY:
+      case cmStateEnums::INTERFACE_LIBRARY:
         prefix = "Tool_" + projectName + "_";
         break;
       default:
@@ -93,6 +94,7 @@ namespace
       case cmStateEnums::MODULE_LIBRARY:
         return "DynamicLibrary";
       case cmStateEnums::UTILITY:
+      case cmStateEnums::INTERFACE_LIBRARY:
         return "Tool";
       default:
         assert(false);
@@ -104,6 +106,15 @@ namespace
   bool IsStaticLib(const cmGeneratorTarget* target) {
     switch (target->GetType()) {
       case cmStateEnums::STATIC_LIBRARY:
+      case cmStateEnums::OBJECT_LIBRARY:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  bool IsObjectLib(const cmGeneratorTarget* target) {
+    switch (target->GetType()) {
       case cmStateEnums::OBJECT_LIBRARY:
         return true;
       default:
@@ -411,12 +422,12 @@ void cmExtraMalterlibGenerator::CollectOutputFilesFromTargets(std::string const 
         case cmStateEnums::STATIC_LIBRARY:
         case cmStateEnums::SHARED_LIBRARY:
         case cmStateEnums::MODULE_LIBRARY:
+        case cmStateEnums::OBJECT_LIBRARY:
         {
           this->CollectOutputFilesFromTarget(_ProjectName, *lg, target.get(), make.c_str(),
                              makefile, compiler.c_str(),
                              false);
         } break;
-        case cmStateEnums::OBJECT_LIBRARY:
         default:
           break;
       }
@@ -462,12 +473,12 @@ void cmExtraMalterlibGenerator::AppendAllTargets(std::string const &_ProjectName
         case cmStateEnums::STATIC_LIBRARY:
         case cmStateEnums::SHARED_LIBRARY:
         case cmStateEnums::MODULE_LIBRARY:
+        case cmStateEnums::OBJECT_LIBRARY:
         {
           this->AppendTarget(_ProjectName, registry, *lg, target.get(), make.c_str(),
                              makefile, compiler.c_str(),
                              false);
         } break;
-        case cmStateEnums::OBJECT_LIBRARY:
         default:
           break;
       }
@@ -1022,7 +1033,7 @@ void cmExtraMalterlibGenerator::CollectOutputFilesFromTarget(std::string const &
   GetTargetFiles(sourceFiles, lg, target, makefile);
   CollectOutputFilesFromFiles(_ProjectName, sourceFiles, configName, lg, target, isUtilityTarget);
 
-  cmTargetDependSet const& targetDependencies =
+/*  cmTargetDependSet const& targetDependencies =
     const_cast<cmGlobalGenerator*>(GlobalGenerator)->
     GetTargetDirectDepends(target);
 
@@ -1044,7 +1055,7 @@ void cmExtraMalterlibGenerator::CollectOutputFilesFromTarget(std::string const &
       }
       continue;
     }
-  }
+  }*/
 }
 
 void cmExtraMalterlibGenerator::AppendTarget(std::string const &_ProjectName,
@@ -1090,6 +1101,8 @@ void cmExtraMalterlibGenerator::AppendTarget(std::string const &_ProjectName,
   outputTarget.addChild("Target.Type", GetTargetType(target));
   outputTarget.addChild("Target.BaseName", lg->GetProjectName() + "_" + target->GetName());
   outputTarget.addChild("Target.BaseFileName", target->GetName());
+  if (IsObjectLib(target))
+    outputTarget.addChild("Target.ObjectLibrary", "true").RawValue = true;
 
   std::map<std::string, cmMalterlibCompileTypeInfo> compileTypeInfo;
   AddTargetCompileInfo(compileTypeInfo, target, lg, configName);
@@ -1112,12 +1125,12 @@ void cmExtraMalterlibGenerator::AppendTarget(std::string const &_ProjectName,
         GetTargetDirectDepends(_pTarget);
 
       for (auto &dependency : targetDependencies) {
-        auto dependencyLocalGenerator = dependency->GetLocalGenerator();
+        //auto dependencyLocalGenerator = dependency->GetLocalGenerator();
         if (dependency->GetName() == "global_target" || dependency->GetType() == cmStateEnums::INTERFACE_LIBRARY) {
           continue;
         }
 
-        if (dependency->GetType() == cmStateEnums::OBJECT_LIBRARY) {
+        /*if (dependency->GetType() == cmStateEnums::OBJECT_LIBRARY) {
           if (!isUtilityTarget) {
             std::vector<cmSourceFile*> sourceFiles;
             GetTargetFiles(sourceFiles, dependencyLocalGenerator, &*dependency, dependencyLocalGenerator->GetMakefile());
@@ -1130,14 +1143,14 @@ void cmExtraMalterlibGenerator::AppendTarget(std::string const &_ProjectName,
             AddTargetCompileInfo(compileTypeInfo, &*dependency, dependencyLocalGenerator, configName);
           }
           continue;
-        }
+        }*/
         if (_bOnlyObjects)
           continue;
 
         auto &outputDependency =
           outputTarget.addChild("%Dependency", GetTargetName(dependency, dependency->LocalGenerator->GetProjectName()));
 
-        if (!dependency.IsLink())
+        if (!dependency.IsLink() && !IsObjectLib(dependency))
           outputDependency.addChild("Dependency.Link", "false").RawValue = true;
         else if (IsStaticLib(target) && IsStaticLib(dependency)) {
           outputDependency.addChild("Dependency.Indirect", "true").RawValue = true;
