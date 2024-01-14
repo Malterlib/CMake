@@ -1154,6 +1154,7 @@ void cmExtraMalterlibGenerator::AppendTarget(std::string const &_ProjectName,
           outputDependency.addChild("Dependency.Link", "false").RawValue = true;
         else if (IsStaticLib(target) && IsStaticLib(dependency)) {
           outputDependency.addChild("Dependency.Indirect", "true").RawValue = true;
+          outputDependency.addChild("Dependency.IndirectOrdered", "true").RawValue = true;
         }
       }
     }
