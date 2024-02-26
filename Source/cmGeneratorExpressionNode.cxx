@@ -736,7 +736,15 @@ static const struct PathNode : public cmGeneratorExpressionNode
       std::function<std::string(cmGeneratorExpressionContext*,
                                 const GeneratorExpressionContent*,
                                 Arguments&)>>
-      pathCommands{
+      pathCommands = []
+        {
+              std::unordered_map<
+      cm::string_view,
+      std::function<std::string(cmGeneratorExpressionContext*,
+                                const GeneratorExpressionContent*,
+                                Arguments&)>>
+                  commands;
+        commands = {
         { "GET_ROOT_NAME"_s,
           [](cmGeneratorExpressionContext* ctx,
              const GeneratorExpressionContent* cnt,
@@ -1124,6 +1132,9 @@ static const struct PathNode : public cmGeneratorExpressionNode
             return std::string{};
           } }
       };
+
+      return commands;
+    }();
 
     if (cm::contains(pathCommands, parameters.front())) {
       auto args = Arguments{ parameters }.advance(1);

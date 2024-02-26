@@ -1179,7 +1179,7 @@ bool cmQtAutoGenInitializer::InitAutogenTarget()
   this->Makefile->AddCMakeOutputFile(this->AutogenTarget.InfoFile);
 
   // Determine whether to use a depfile for the AUTOGEN target.
-  bool const useDepfile = [this]() -> bool {
+  bool const useDepfile = []() -> bool {
     return false;
     /*
     auto const& gen = this->GlobalGen->GetName();
