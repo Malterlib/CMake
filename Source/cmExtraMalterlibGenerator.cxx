@@ -1118,7 +1118,7 @@ void cmExtraMalterlibGenerator::AppendTarget(std::string const &_ProjectName,
     AddFilesToRegistry(_ProjectName, outputTarget, sourceFiles, configName, lg, target, true);
   }
 
-  auto fAddDependencies = [&](auto &_fAddDependencies, cmGeneratorTarget const *_pTarget, bool _bOnlyObjects, mint _Depth) -> void
+  auto fAddDependencies = [&](cmGeneratorTarget const *_pTarget, bool _bOnlyObjects, mint _Depth) -> void
     {
       cmTargetDependSet const& targetDependencies =
         const_cast<cmGlobalGenerator*>(GlobalGenerator)->
@@ -1160,7 +1160,7 @@ void cmExtraMalterlibGenerator::AppendTarget(std::string const &_ProjectName,
     }
   ;
 
-  fAddDependencies(fAddDependencies, target, false, 0);
+  fAddDependencies(target, false, 0);
 
   if (!isUtilityTarget) {
     for (auto &infoMap : compileTypeInfo) {
