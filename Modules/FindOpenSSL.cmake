@@ -111,6 +111,8 @@ The following variables may be set to control search behavior:
   locations.  Useful on multi-lib systems.
 #]=======================================================================]
 
+if (NOT OPENSSL_FOUND)
+
 macro(_OpenSSL_test_and_find_dependencies ssl_library crypto_library)
   unset(_OpenSSL_extra_static_deps)
   if(UNIX AND
@@ -677,30 +679,35 @@ find_package_handle_standard_args(OpenSSL
     "Could NOT find OpenSSL, try to set the path to OpenSSL root folder in the system variable OPENSSL_ROOT_DIR"
 )
 
+else()
+  function(_OpenSSL_target_add_dependencies target)
+  endfunction()
+endif()
+
 mark_as_advanced(OPENSSL_INCLUDE_DIR)
 
 if(OPENSSL_FOUND)
   if(NOT TARGET OpenSSL::Crypto AND
-      (EXISTS "${OPENSSL_CRYPTO_LIBRARY}" OR
-        EXISTS "${LIB_EAY_LIBRARY_DEBUG}" OR
-        EXISTS "${LIB_EAY_LIBRARY_RELEASE}")
+      (NOT "${OPENSSL_CRYPTO_LIBRARY}" STREQUAL "" OR
+        NOT "${LIB_EAY_LIBRARY_DEBUG}" STREQUAL "" OR
+        NOT "${LIB_EAY_LIBRARY_RELEASE}" STREQUAL "")
       )
     add_library(OpenSSL::Crypto UNKNOWN IMPORTED)
     set_target_properties(OpenSSL::Crypto PROPERTIES
       INTERFACE_INCLUDE_DIRECTORIES "${OPENSSL_INCLUDE_DIR}")
-    if(EXISTS "${OPENSSL_CRYPTO_LIBRARY}")
+    if(NOT "${OPENSSL_CRYPTO_LIBRARY}" STREQUAL "")
       set_target_properties(OpenSSL::Crypto PROPERTIES
         IMPORTED_LINK_INTERFACE_LANGUAGES "C"
         IMPORTED_LOCATION "${OPENSSL_CRYPTO_LIBRARY}")
     endif()
-    if(EXISTS "${LIB_EAY_LIBRARY_RELEASE}")
+    if(NOT "${LIB_EAY_LIBRARY_RELEASE}" STREQUAL "")
       set_property(TARGET OpenSSL::Crypto APPEND PROPERTY
         IMPORTED_CONFIGURATIONS RELEASE)
       set_target_properties(OpenSSL::Crypto PROPERTIES
         IMPORTED_LINK_INTERFACE_LANGUAGES_RELEASE "C"
         IMPORTED_LOCATION_RELEASE "${LIB_EAY_LIBRARY_RELEASE}")
     endif()
-    if(EXISTS "${LIB_EAY_LIBRARY_DEBUG}")
+    if(NOT "${LIB_EAY_LIBRARY_DEBUG}" STREQUAL "")
       set_property(TARGET OpenSSL::Crypto APPEND PROPERTY
         IMPORTED_CONFIGURATIONS DEBUG)
       set_target_properties(OpenSSL::Crypto PROPERTIES
@@ -711,26 +718,26 @@ if(OPENSSL_FOUND)
   endif()
 
   if(NOT TARGET OpenSSL::SSL AND
-      (EXISTS "${OPENSSL_SSL_LIBRARY}" OR
-        EXISTS "${SSL_EAY_LIBRARY_DEBUG}" OR
-        EXISTS "${SSL_EAY_LIBRARY_RELEASE}")
+      (NOT "${OPENSSL_SSL_LIBRARY}" STREQUAL "" OR
+        NOT "${SSL_EAY_LIBRARY_DEBUG}" STREQUAL "" OR
+        NOT "${SSL_EAY_LIBRARY_RELEASE}" STREQUAL "")
       )
     add_library(OpenSSL::SSL UNKNOWN IMPORTED)
     set_target_properties(OpenSSL::SSL PROPERTIES
       INTERFACE_INCLUDE_DIRECTORIES "${OPENSSL_INCLUDE_DIR}")
-    if(EXISTS "${OPENSSL_SSL_LIBRARY}")
+    if(NOT "${OPENSSL_SSL_LIBRARY}" STREQUAL "")
       set_target_properties(OpenSSL::SSL PROPERTIES
         IMPORTED_LINK_INTERFACE_LANGUAGES "C"
         IMPORTED_LOCATION "${OPENSSL_SSL_LIBRARY}")
     endif()
-    if(EXISTS "${SSL_EAY_LIBRARY_RELEASE}")
+    if(NOT "${SSL_EAY_LIBRARY_RELEASE}" STREQUAL "")
       set_property(TARGET OpenSSL::SSL APPEND PROPERTY
         IMPORTED_CONFIGURATIONS RELEASE)
       set_target_properties(OpenSSL::SSL PROPERTIES
         IMPORTED_LINK_INTERFACE_LANGUAGES_RELEASE "C"
         IMPORTED_LOCATION_RELEASE "${SSL_EAY_LIBRARY_RELEASE}")
     endif()
-    if(EXISTS "${SSL_EAY_LIBRARY_DEBUG}")
+    if(NOT "${SSL_EAY_LIBRARY_DEBUG}" STREQUAL "")
       set_property(TARGET OpenSSL::SSL APPEND PROPERTY
         IMPORTED_CONFIGURATIONS DEBUG)
       set_target_properties(OpenSSL::SSL PROPERTIES
@@ -746,7 +753,7 @@ if(OPENSSL_FOUND)
 
   if("${OPENSSL_VERSION_MAJOR}.${OPENSSL_VERSION_MINOR}.${OPENSSL_VERSION_FIX}" VERSION_GREATER_EQUAL "0.9.8")
     if(MSVC)
-      if(EXISTS "${OPENSSL_INCLUDE_DIR}")
+      if(NOT "${OPENSSL_INCLUDE_DIR}" STREQUAL "")
         set(_OPENSSL_applink_paths PATHS ${OPENSSL_INCLUDE_DIR})
       endif()
       find_file(OPENSSL_APPLINK_SOURCE
