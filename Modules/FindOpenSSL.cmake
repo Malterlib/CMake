@@ -200,6 +200,10 @@ explicitly specified to ensure that the find module reports an error if the
 cmake_policy(PUSH)
 cmake_policy(SET CMP0159 NEW) # file(STRINGS) with REGEX updates CMAKE_MATCH_<n>
 
+# A caller can provide OpenSSL by setting OPENSSL_PROVIDED and the variables of the include directory and the libraries.
+# The results of earlier lookups, which set OpenSSL_FOUND and OPENSSL_FOUND, are searched again.
+if (NOT OPENSSL_PROVIDED)
+
 macro(_OpenSSL_test_and_find_dependencies ssl_library crypto_library)
   unset(_OpenSSL_extra_static_deps)
   if(UNIX AND
@@ -301,6 +305,7 @@ endif ()
 # Support preference of static libs by adjusting CMAKE_FIND_LIBRARY_SUFFIXES
 if(OPENSSL_USE_STATIC_LIBS)
   set(_openssl_ORIG_CMAKE_FIND_LIBRARY_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES})
+  set(_openssl_CHANGED_CMAKE_FIND_LIBRARY_SUFFIXES TRUE)
   if(MSVC)
     set(CMAKE_FIND_LIBRARY_SUFFIXES .lib .a ${CMAKE_FIND_LIBRARY_SUFFIXES})
   else()
@@ -761,30 +766,130 @@ find_package_handle_standard_args(OpenSSL
     "Could NOT find OpenSSL, try to set the path to OpenSSL root folder in the system variable OPENSSL_ROOT_DIR"
 )
 
+else()
+  function(_OpenSSL_target_add_dependencies target)
+  endfunction()
+  if(NOT DEFINED OpenSSL_VERSION AND DEFINED OPENSSL_VERSION)
+    set(OpenSSL_VERSION "${OPENSSL_VERSION}")
+  elseif(NOT DEFINED OPENSSL_VERSION AND DEFINED OpenSSL_VERSION)
+    set(OPENSSL_VERSION "${OpenSSL_VERSION}")
+  endif()
+  # The components of the version, as the search sets them, which the targets below check
+  if(DEFINED OpenSSL_VERSION AND NOT DEFINED OPENSSL_VERSION_MAJOR AND
+      OpenSSL_VERSION MATCHES "^([0-9]+)\\.([0-9]+)\\.([0-9]+)")
+    set(OPENSSL_VERSION_MAJOR "${CMAKE_MATCH_1}")
+    set(OPENSSL_VERSION_MINOR "${CMAKE_MATCH_2}")
+    set(OPENSSL_VERSION_FIX "${CMAKE_MATCH_3}")
+  endif()
+
+  # The lists of libraries, as the search sets them, of the libraries that the caller provides, unless it sets the lists. Of
+  # libraries by configuration they are the optimized and debug lists, as select_library_configurations makes them for MSVC.
+  if(NOT DEFINED OPENSSL_SSL_LIBRARIES)
+    if(OPENSSL_SSL_LIBRARY OR NOT (SSL_EAY_LIBRARY_RELEASE OR SSL_EAY_LIBRARY_DEBUG))
+      set(OPENSSL_SSL_LIBRARIES ${OPENSSL_SSL_LIBRARY})
+    else()
+      include(${CMAKE_CURRENT_LIST_DIR}/SelectLibraryConfigurations.cmake)
+      select_library_configurations(SSL_EAY)
+      set(OPENSSL_SSL_LIBRARIES ${SSL_EAY_LIBRARIES})
+    endif()
+  endif()
+  if(NOT DEFINED OPENSSL_CRYPTO_LIBRARIES)
+    if(OPENSSL_CRYPTO_LIBRARY OR NOT (LIB_EAY_LIBRARY_RELEASE OR LIB_EAY_LIBRARY_DEBUG))
+      set(OPENSSL_CRYPTO_LIBRARIES ${OPENSSL_CRYPTO_LIBRARY})
+    else()
+      include(${CMAKE_CURRENT_LIST_DIR}/SelectLibraryConfigurations.cmake)
+      select_library_configurations(LIB_EAY)
+      set(OPENSSL_CRYPTO_LIBRARIES ${LIB_EAY_LIBRARIES})
+    endif()
+  endif()
+  if(NOT DEFINED OPENSSL_LIBRARIES)
+    set(OPENSSL_LIBRARIES ${OPENSSL_SSL_LIBRARIES} ${OPENSSL_CRYPTO_LIBRARIES})
+  endif()
+
+  # The libraries that the caller provides, as the search above finds them, where they need not exist yet: what if() takes
+  # as true, so not a value that ends in -NOTFOUND. Crypto is required, as above. A version is only checked when the caller
+  # provides one.
+  unset(_OpenSSL_crypto_library)
+  foreach(_OpenSSL_library IN ITEMS OPENSSL_CRYPTO_LIBRARY LIB_EAY_LIBRARY_RELEASE LIB_EAY_LIBRARY_DEBUG)
+    if(${_OpenSSL_library} AND NOT DEFINED _OpenSSL_crypto_library)
+      set(_OpenSSL_crypto_library "${${_OpenSSL_library}}")
+    endif()
+  endforeach()
+  unset(_OpenSSL_library)
+  foreach(_comp IN LISTS OpenSSL_FIND_COMPONENTS)
+    if(_comp STREQUAL "Crypto")
+      if(OPENSSL_INCLUDE_DIR AND (OPENSSL_CRYPTO_LIBRARY OR LIB_EAY_LIBRARY_DEBUG OR LIB_EAY_LIBRARY_RELEASE))
+        set(OpenSSL_${_comp}_FOUND TRUE)
+      else()
+        set(OpenSSL_${_comp}_FOUND FALSE)
+      endif()
+    elseif(_comp STREQUAL "SSL")
+      if(OPENSSL_INCLUDE_DIR AND (OPENSSL_SSL_LIBRARY OR SSL_EAY_LIBRARY_DEBUG OR SSL_EAY_LIBRARY_RELEASE))
+        set(OpenSSL_${_comp}_FOUND TRUE)
+      else()
+        set(OpenSSL_${_comp}_FOUND FALSE)
+      endif()
+    else()
+      message(WARNING "${_comp} is not a valid OpenSSL component")
+      set(OpenSSL_${_comp}_FOUND FALSE)
+    endif()
+  endforeach()
+  unset(_comp)
+
+  set(_OpenSSL_version_args)
+  if(DEFINED OpenSSL_VERSION)
+    set(_OpenSSL_version_args VERSION_VAR OpenSSL_VERSION HANDLE_VERSION_RANGE)
+  endif()
+  include(FindPackageHandleStandardArgs)
+  find_package_handle_standard_args(OpenSSL
+    REQUIRED_VARS
+      _OpenSSL_crypto_library
+      OPENSSL_INCLUDE_DIR
+    ${_OpenSSL_version_args}
+    HANDLE_COMPONENTS
+  )
+  unset(_OpenSSL_version_args)
+  unset(_OpenSSL_crypto_library)
+endif()
+
 mark_as_advanced(OPENSSL_INCLUDE_DIR)
+
+# The libraries of the targets: a file that exists, as without a caller that provides OpenSSL, or a library that the caller
+# provides, which need not exist yet. Not the list of the libraries of the configurations that select_library_configurations
+# makes of debug and release libraries, which the targets get by configuration.
+foreach(_OpenSSL_library IN ITEMS OPENSSL_CRYPTO_LIBRARY LIB_EAY_LIBRARY_DEBUG LIB_EAY_LIBRARY_RELEASE
+    OPENSSL_SSL_LIBRARY SSL_EAY_LIBRARY_DEBUG SSL_EAY_LIBRARY_RELEASE)
+  if(EXISTS "${${_OpenSSL_library}}" OR
+      (OPENSSL_PROVIDED AND ${_OpenSSL_library} AND NOT "${${_OpenSSL_library}}" MATCHES ";"))
+    set(_OpenSSL_has_${_OpenSSL_library} TRUE)
+  else()
+    set(_OpenSSL_has_${_OpenSSL_library} FALSE)
+  endif()
+endforeach()
+unset(_OpenSSL_library)
 
 if(OpenSSL_FOUND)
   if(NOT TARGET OpenSSL::Crypto AND
-      (EXISTS "${OPENSSL_CRYPTO_LIBRARY}" OR
-        EXISTS "${LIB_EAY_LIBRARY_DEBUG}" OR
-        EXISTS "${LIB_EAY_LIBRARY_RELEASE}")
+      (_OpenSSL_has_OPENSSL_CRYPTO_LIBRARY OR
+        _OpenSSL_has_LIB_EAY_LIBRARY_DEBUG OR
+        _OpenSSL_has_LIB_EAY_LIBRARY_RELEASE)
       )
     add_library(OpenSSL::Crypto UNKNOWN IMPORTED)
     set_target_properties(OpenSSL::Crypto PROPERTIES
       INTERFACE_INCLUDE_DIRECTORIES "${OPENSSL_INCLUDE_DIR}")
-    if(EXISTS "${OPENSSL_CRYPTO_LIBRARY}")
+    if(_OpenSSL_has_OPENSSL_CRYPTO_LIBRARY)
       set_target_properties(OpenSSL::Crypto PROPERTIES
         IMPORTED_LINK_INTERFACE_LANGUAGES "C"
         IMPORTED_LOCATION "${OPENSSL_CRYPTO_LIBRARY}")
     endif()
-    if(EXISTS "${LIB_EAY_LIBRARY_RELEASE}")
+    if(_OpenSSL_has_LIB_EAY_LIBRARY_RELEASE)
       set_property(TARGET OpenSSL::Crypto APPEND PROPERTY
         IMPORTED_CONFIGURATIONS RELEASE)
       set_target_properties(OpenSSL::Crypto PROPERTIES
         IMPORTED_LINK_INTERFACE_LANGUAGES_RELEASE "C"
         IMPORTED_LOCATION_RELEASE "${LIB_EAY_LIBRARY_RELEASE}")
     endif()
-    if(EXISTS "${LIB_EAY_LIBRARY_DEBUG}")
+    if(_OpenSSL_has_LIB_EAY_LIBRARY_DEBUG)
       set_property(TARGET OpenSSL::Crypto APPEND PROPERTY
         IMPORTED_CONFIGURATIONS DEBUG)
       set_target_properties(OpenSSL::Crypto PROPERTIES
@@ -795,26 +900,26 @@ if(OpenSSL_FOUND)
   endif()
 
   if(NOT TARGET OpenSSL::SSL AND
-      (EXISTS "${OPENSSL_SSL_LIBRARY}" OR
-        EXISTS "${SSL_EAY_LIBRARY_DEBUG}" OR
-        EXISTS "${SSL_EAY_LIBRARY_RELEASE}")
+      (_OpenSSL_has_OPENSSL_SSL_LIBRARY OR
+        _OpenSSL_has_SSL_EAY_LIBRARY_DEBUG OR
+        _OpenSSL_has_SSL_EAY_LIBRARY_RELEASE)
       )
     add_library(OpenSSL::SSL UNKNOWN IMPORTED)
     set_target_properties(OpenSSL::SSL PROPERTIES
       INTERFACE_INCLUDE_DIRECTORIES "${OPENSSL_INCLUDE_DIR}")
-    if(EXISTS "${OPENSSL_SSL_LIBRARY}")
+    if(_OpenSSL_has_OPENSSL_SSL_LIBRARY)
       set_target_properties(OpenSSL::SSL PROPERTIES
         IMPORTED_LINK_INTERFACE_LANGUAGES "C"
         IMPORTED_LOCATION "${OPENSSL_SSL_LIBRARY}")
     endif()
-    if(EXISTS "${SSL_EAY_LIBRARY_RELEASE}")
+    if(_OpenSSL_has_SSL_EAY_LIBRARY_RELEASE)
       set_property(TARGET OpenSSL::SSL APPEND PROPERTY
         IMPORTED_CONFIGURATIONS RELEASE)
       set_target_properties(OpenSSL::SSL PROPERTIES
         IMPORTED_LINK_INTERFACE_LANGUAGES_RELEASE "C"
         IMPORTED_LOCATION_RELEASE "${SSL_EAY_LIBRARY_RELEASE}")
     endif()
-    if(EXISTS "${SSL_EAY_LIBRARY_DEBUG}")
+    if(_OpenSSL_has_SSL_EAY_LIBRARY_DEBUG)
       set_property(TARGET OpenSSL::SSL APPEND PROPERTY
         IMPORTED_CONFIGURATIONS DEBUG)
       set_target_properties(OpenSSL::SSL PROPERTIES
@@ -830,7 +935,7 @@ if(OpenSSL_FOUND)
 
   if("${OPENSSL_VERSION_MAJOR}.${OPENSSL_VERSION_MINOR}.${OPENSSL_VERSION_FIX}" VERSION_GREATER_EQUAL "0.9.8")
     if(MSVC)
-      if(EXISTS "${OPENSSL_INCLUDE_DIR}")
+      if(NOT "${OPENSSL_INCLUDE_DIR}" STREQUAL "")
         set(_OPENSSL_applink_paths PATHS ${OPENSSL_INCLUDE_DIR})
       endif()
       find_file(OPENSSL_APPLINK_SOURCE
@@ -851,11 +956,18 @@ if(OpenSSL_FOUND)
   endif()
 endif()
 
-# Restore the original find library ordering
-if(OPENSSL_USE_STATIC_LIBS)
+# Restore the original find library ordering, which a caller that provides OpenSSL leaves as it is
+if(_openssl_CHANGED_CMAKE_FIND_LIBRARY_SUFFIXES)
   set(CMAKE_FIND_LIBRARY_SUFFIXES ${_openssl_ORIG_CMAKE_FIND_LIBRARY_SUFFIXES})
+  unset(_openssl_ORIG_CMAKE_FIND_LIBRARY_SUFFIXES)
+  unset(_openssl_CHANGED_CMAKE_FIND_LIBRARY_SUFFIXES)
 endif()
 
+foreach(_OpenSSL_library IN ITEMS OPENSSL_CRYPTO_LIBRARY LIB_EAY_LIBRARY_DEBUG LIB_EAY_LIBRARY_RELEASE
+    OPENSSL_SSL_LIBRARY SSL_EAY_LIBRARY_DEBUG SSL_EAY_LIBRARY_RELEASE)
+  unset(_OpenSSL_has_${_OpenSSL_library})
+endforeach()
+unset(_OpenSSL_library)
 unset(_OPENSSL_FIND_PATH_SUFFIX)
 unset(_OPENSSL_NAME_POSTFIX)
 unset(_OpenSSL_extra_static_deps)
