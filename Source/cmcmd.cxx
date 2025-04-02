@@ -206,8 +206,8 @@ bool cmTarFilesFrom(std::string const& file, std::vector<std::string>& files)
 void cmCatFile(const std::string& fileToAppend)
 {
 #ifdef _WIN32
-  _setmode(fileno(stdin), _O_BINARY);
-  _setmode(fileno(stdout), _O_BINARY);
+  _setmode(_fileno(stdin), _O_BINARY);
+  _setmode(_fileno(stdout), _O_BINARY);
 #endif
   std::streambuf* buf = std::cin.rdbuf();
   cmsys::ifstream source;
