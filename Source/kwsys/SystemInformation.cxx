@@ -1,7 +1,9 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
    file Copyright.txt or https://cmake.org/licensing#kwsys for details.  */
 #if defined(_WIN32)
-#  define NOMINMAX // use our min,max
+#  ifndef NOMINMAX
+#    define NOMINMAX // use our min,max
+#  endif
 #  if !defined(_WIN32_WINNT) && defined(_MSC_VER) && _MSC_VER >= 1800
 #    define _WIN32_WINNT 0x0600 // vista
 #  endif
@@ -4214,6 +4216,7 @@ long long SystemInformationImplementation::GetProcessId()
 #  pragma warning(disable : 4091) /* 'typedef ': ignored on left of '' */
 #  include "dbghelp.h"
 #  pragma warning(pop)
+#  pragma comment(lib, "dbghelp.lib")
 #endif
 
 /**
@@ -4284,10 +4287,20 @@ std::string SystemInformationImplementation::GetProgramStack(int firstFrame,
       // nearest export as an approximate location hint when one is known.
       wchar_t modulePath[MAX_PATH];
       DWORD64 moduleBase = SymGetModuleBase64(process, address);
-      if (moduleBase &&
-          GetModuleFileNameW(reinterpret_cast<HMODULE>(moduleBase), modulePath,
-                             MAX_PATH) > 0) {
-        oss << " at " << modulePath << "+0x" << std::hex
+      DWORD modulePathLength = moduleBase
+        ? GetModuleFileNameW(reinterpret_cast<HMODULE>(moduleBase), modulePath,
+                             MAX_PATH)
+        : 0;
+      if (modulePathLength > 0) {
+        // C++20 deletes streaming wchar_t strings into std::ostream, so the
+        // path streams as UTF-8.
+        char narrowPath[MAX_PATH * 3];
+        int narrowLength = WideCharToMultiByte(
+          CP_UTF8, 0, modulePath, static_cast<int>(modulePathLength),
+          narrowPath, static_cast<int>(sizeof(narrowPath)), nullptr, nullptr);
+        oss << " at "
+            << std::string(narrowPath, narrowLength > 0 ? narrowLength : 0)
+            << "+0x" << std::hex
             << (address - moduleBase) << std::dec;
       } else {
         oss << " at 0x" << std::hex << address << std::dec;

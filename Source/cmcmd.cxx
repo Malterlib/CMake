@@ -1,5 +1,10 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
    file LICENSE.rst or https://cmake.org/licensing for details.  */
+
+#ifdef _WIN32
+#  include <WinSock2.h>
+#endif
+
 #include "cmcmd.h"
 
 #include <algorithm>
@@ -269,8 +274,8 @@ bool cmTarFilesFrom(std::string const& file, std::vector<std::string>& files)
 void cmCatFile(cm::optional<std::string> fileToAppend)
 {
 #ifdef _WIN32
-  _setmode(fileno(stdin), _O_BINARY);
-  _setmode(fileno(stdout), _O_BINARY);
+  _setmode(_fileno(stdin), _O_BINARY);
+  _setmode(_fileno(stdout), _O_BINARY);
 #endif
   std::streambuf* buf = std::cin.rdbuf();
   cmsys::ifstream source;
@@ -2412,7 +2417,7 @@ int cmcmd::ExecuteCMakeCommand(std::vector<std::string> const& args,
         sin = &fin;
 #ifdef _WIN32
       } else {
-        _setmode(fileno(stdin), _O_BINARY);
+        _setmode(_fileno(stdin), _O_BINARY);
 #endif
       }
 
@@ -2557,7 +2562,7 @@ int cmcmd::HashSumFile(std::vector<std::string> const& args,
   for (auto const& filename : cmMakeRange(args).advance(2)) {
     if (filename == "-") {
 #ifdef _WIN32
-      _setmode(fileno(stdin), _O_BINARY);
+      _setmode(_fileno(stdin), _O_BINARY);
 #endif
       cmCryptoHash hasher(algo);
       std::string value = hasher.HashStream(std::cin);

@@ -7,6 +7,10 @@
 
 #include "cmFileLockResult.h"
 
+#if defined(_WIN32)
+#include <Windows.h>
+#endif
+
 // Common implementation
 
 cmFileLock::cmFileLock(cmFileLock&& other) noexcept
