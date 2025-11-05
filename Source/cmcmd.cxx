@@ -1,5 +1,10 @@
 /* Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
    file LICENSE.rst or https://cmake.org/licensing for details.  */
+
+#ifdef _WIN32
+#  include <WinSock2.h>
+#endif
+
 #include "cmcmd.h"
 
 #include <functional>
@@ -192,8 +197,8 @@ bool cmTarFilesFrom(std::string const& file, std::vector<std::string>& files)
 void cmCatFile(std::string const& fileToAppend)
 {
 #ifdef _WIN32
-  _setmode(fileno(stdin), _O_BINARY);
-  _setmode(fileno(stdout), _O_BINARY);
+  _setmode(_fileno(stdin), _O_BINARY);
+  _setmode(_fileno(stdout), _O_BINARY);
 #endif
   std::streambuf* buf = std::cin.rdbuf();
   cmsys::ifstream source;

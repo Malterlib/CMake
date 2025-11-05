@@ -216,6 +216,8 @@ static int uv__get_cpu_speed(uint64_t* speed) {
   io_iterator_t it;
   io_object_t service;
 
+  (void)kr;
+
   mach_port = 0;
 
   err = UV_ENOENT;

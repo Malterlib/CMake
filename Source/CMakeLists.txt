@@ -1041,7 +1041,7 @@ endif()
 set(_tools)
 
 if(WIN32 AND NOT CYGWIN)
-  set_source_files_properties(cmcldeps.cxx PROPERTIES COMPILE_DEFINITIONS _WIN32_WINNT=0x0501)
+  #set_source_files_properties(cmcldeps.cxx PROPERTIES COMPILE_DEFINITIONS _WIN32_WINNT=0x0501)
   add_executable(cmcldeps cmcldeps.cxx)
   target_link_libraries(cmcldeps PRIVATE CMakeLib ManifestLib)
   list(APPEND _tools cmcldeps)

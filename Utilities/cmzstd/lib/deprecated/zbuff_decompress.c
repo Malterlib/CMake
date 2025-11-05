@@ -13,7 +13,10 @@
 /* *************************************
 *  Dependencies
 ***************************************/
+#ifndef ZSTD_DISABLE_DEPRECATE_WARNINGS
 #define ZSTD_DISABLE_DEPRECATE_WARNINGS  /* suppress warning on ZSTD_initDStream_usingDict */
+#endif
+
 #include "../zstd.h"        /* ZSTD_CStream, ZSTD_DStream, ZSTDLIB_API */
 #define ZBUFF_STATIC_LINKING_ONLY
 #include "zbuff.h"

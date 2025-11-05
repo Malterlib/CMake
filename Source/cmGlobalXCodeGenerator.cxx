@@ -63,10 +63,6 @@
 #  include <CoreFoundation/CFString.h>
 #  include <CoreFoundation/CFURL.h>
 #  include <CoreFoundation/CFUUID.h>
-#  if !TARGET_OS_IPHONE
-#    define HAVE_APPLICATION_SERVICES
-#    include <ApplicationServices/ApplicationServices.h>
-#  endif
 #endif
 
 #if !defined(CMAKE_BOOTSTRAP)

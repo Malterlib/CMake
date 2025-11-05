@@ -31,7 +31,7 @@ size_t DuplexPipe_WIN32::read(void* buffer, size_t n)
   if (hPipe != INVALID_HANDLE_VALUE) {
     readOp.Offset = readOp.OffsetHigh = 0;
     ResetEvent(readOp.hEvent);
-    auto r = ReadFile(hPipe, buffer, n, NULL, &readOp);
+    auto r = ReadFile(hPipe, buffer, (DWORD)n, NULL, &readOp);
     auto err = GetLastError();
     if (r || err == ERROR_IO_PENDING) {
       DWORD nRead = 0;
@@ -49,7 +49,7 @@ bool DuplexPipe_WIN32::write(void const* buffer, size_t n)
   if (hPipe != INVALID_HANDLE_VALUE) {
     writeOp.Offset = writeOp.OffsetHigh = 0;
     ResetEvent(writeOp.hEvent);
-    auto w = WriteFile(hPipe, buffer, n, NULL, &writeOp);
+    auto w = WriteFile(hPipe, buffer, (DWORD)n, NULL, &writeOp);
     auto err = GetLastError();
     if (w || err == ERROR_IO_PENDING) {
       DWORD nWrite = 0;
