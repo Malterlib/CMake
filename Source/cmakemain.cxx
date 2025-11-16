@@ -1131,6 +1131,12 @@ int do_open(int ac, char const* const* av)
 }
 } // namespace
 
+struct shutdow_lib_uv {
+  ~shutdow_lib_uv() {
+    uv_library_shutdown();
+  }
+};
+
 int cmake_main(int ac, char const* const* av)
 {
   cm::optional<cm::StdIo::Console> console = cm::StdIo::Console();
@@ -1141,8 +1147,11 @@ int cmake_main(int ac, char const* const* av)
   av = args.argv();
 
   cmSystemTools::InitializeLibUV();
+  shutdow_lib_uv shutdownLibUV;
   cmSystemTools::FindCMakeResources(av[0]);
   cmSystemTools::SetRunCommandHideConsole(true);
+
+
   if (ac > 1) {
     if (strcmp(av[1], "--build") == 0) {
       return do_build(ac, av);

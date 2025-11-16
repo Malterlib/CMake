@@ -22,6 +22,10 @@
 #include "uv.h"
 #include "uv-common.h"
 
+#ifdef _WIN32
+# include "win/internal.h"
+#endif
+
 #include <assert.h>
 #include <errno.h>
 #include <stdarg.h>
@@ -905,6 +909,9 @@ void uv_library_shutdown(void) {
 
   uv__process_title_cleanup();
   uv__signal_cleanup();
+#ifdef _WIN32
+  uv__console_cleanup();
+#endif
 #ifdef __MVS__
   /* TODO(itodorov) - zos: revisit when Woz compiler is available. */
   uv__os390_cleanup();
