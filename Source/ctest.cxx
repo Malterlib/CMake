@@ -8,6 +8,8 @@
 
 #include "cmsys/Encoding.hxx"
 
+#include <cm3p/uv.h>
+
 #include "cmCTest.h"
 #include "cmDocumentation.h"
 #include "cmDocumentationEntry.h"
@@ -199,6 +201,17 @@ try {
   cm::StdIo::Console console;
 
   cmSystemTools::InitializeLibUV();
+  // Embedded in another executable, the threads of libuv must not outlive ctest
+  // A system libuv before 1.38 has no uv_library_shutdown
+  struct cmShutdownLibUV
+  {
+    ~cmShutdownLibUV()
+    {
+#if UV_VERSION_MAJOR > 1 || (UV_VERSION_MAJOR == 1 && UV_VERSION_MINOR >= 38)
+      uv_library_shutdown();
+#endif
+    }
+  } shutdownLibUV;
   cmSystemTools::FindCMakeResources(argv[0]);
 
   // Dispatch 'ctest --launch' mode directly.
