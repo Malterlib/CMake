@@ -130,6 +130,11 @@ static int uv__tty_console_height = -1;
 static int uv__tty_console_width = -1;
 static HANDLE uv__tty_console_resized = INVALID_HANDLE_VALUE;
 static uv_mutex_t uv__tty_console_resize_mutex;
+static HANDLE uv__tty_console_shutdown_event = INVALID_HANDLE_VALUE;
+static HANDLE uv__tty_message_loop_thread_handle = INVALID_HANDLE_VALUE;
+static HANDLE uv__tty_watcher_thread_handle = INVALID_HANDLE_VALUE;
+static DWORD uv__tty_message_loop_thread_id = 0;
+static volatile int uv__tty_console_initialized = 0;
 
 static DWORD WINAPI uv__tty_console_resize_message_loop_thread(void* param);
 static void CALLBACK uv__tty_console_resize_event(HWINEVENTHOOK hWinEventHook,
@@ -183,9 +188,24 @@ void uv__console_init(void) {
       uv__tty_console_width = sb_info.dwSize.X;
       uv__tty_console_height = sb_info.srWindow.Bottom - sb_info.srWindow.Top + 1;
     }
-    QueueUserWorkItem(uv__tty_console_resize_message_loop_thread,
-                      NULL,
-                      WT_EXECUTELONGFUNCTION);
+
+    /* Create shutdown event for thread cleanup */
+    uv__tty_console_shutdown_event = CreateEvent(NULL, TRUE, FALSE, NULL);
+    if (uv__tty_console_shutdown_event == NULL)
+      abort();
+
+    /* Create message loop thread with CreateThread to get handle */
+    uv__tty_message_loop_thread_handle =
+      CreateThread(NULL,
+                   0,
+                   uv__tty_console_resize_message_loop_thread,
+                   NULL,
+                   0,
+                   &uv__tty_message_loop_thread_id);
+    if (uv__tty_message_loop_thread_handle == NULL)
+      abort();
+
+    uv__tty_console_initialized = 1;
   }
   uv__tty_console_handle_in = CreateFileW(L"CONIN$",
                                           GENERIC_READ | GENERIC_WRITE,
@@ -199,6 +219,74 @@ void uv__console_init(void) {
       uv__tty_console_in_original_mode = dwMode;
     }
   }
+}
+
+
+void uv__console_cleanup(void) {
+  /* The input handle is opened even when the output handle, and with it the
+   * threads below, could not be */
+  if (uv__tty_console_handle_in != INVALID_HANDLE_VALUE) {
+    CloseHandle(uv__tty_console_handle_in);
+    uv__tty_console_handle_in = INVALID_HANDLE_VALUE;
+  }
+
+  if (!uv__tty_console_initialized)
+    return;
+
+  /* Signal shutdown event */
+  if (uv__tty_console_shutdown_event != INVALID_HANDLE_VALUE)
+    SetEvent(uv__tty_console_shutdown_event);
+
+  /* Post quit message to message loop thread */
+  if (uv__tty_message_loop_thread_id != 0)
+    PostThreadMessage(uv__tty_message_loop_thread_id, WM_QUIT, 0, 0);
+
+  /* The message loop thread creates the watcher thread, so it exits before
+   * the watcher thread handle is read. Both exit before their events close. */
+  if (uv__tty_message_loop_thread_handle != INVALID_HANDLE_VALUE &&
+      uv__tty_message_loop_thread_handle != NULL)
+    WaitForSingleObject(uv__tty_message_loop_thread_handle, 5000);
+
+  if (uv__tty_watcher_thread_handle != INVALID_HANDLE_VALUE &&
+      uv__tty_watcher_thread_handle != NULL)
+    WaitForSingleObject(uv__tty_watcher_thread_handle, 5000);
+
+  /* Clean up thread handles */
+  if (uv__tty_message_loop_thread_handle != INVALID_HANDLE_VALUE &&
+      uv__tty_message_loop_thread_handle != NULL) {
+    CloseHandle(uv__tty_message_loop_thread_handle);
+    uv__tty_message_loop_thread_handle = INVALID_HANDLE_VALUE;
+  }
+
+  if (uv__tty_watcher_thread_handle != INVALID_HANDLE_VALUE &&
+      uv__tty_watcher_thread_handle != NULL) {
+    CloseHandle(uv__tty_watcher_thread_handle);
+    uv__tty_watcher_thread_handle = INVALID_HANDLE_VALUE;
+  }
+
+  /* Clean up event handles */
+  if (uv__tty_console_shutdown_event != INVALID_HANDLE_VALUE) {
+    CloseHandle(uv__tty_console_shutdown_event);
+    uv__tty_console_shutdown_event = INVALID_HANDLE_VALUE;
+  }
+
+  if (uv__tty_console_resized != INVALID_HANDLE_VALUE) {
+    CloseHandle(uv__tty_console_resized);
+    uv__tty_console_resized = INVALID_HANDLE_VALUE;
+  }
+
+  /* Clean up console handle */
+  if (uv__tty_console_handle_out != INVALID_HANDLE_VALUE) {
+    CloseHandle(uv__tty_console_handle_out);
+    uv__tty_console_handle_out = INVALID_HANDLE_VALUE;
+  }
+
+  /* Destroy mutex */
+  uv_mutex_destroy(&uv__tty_console_resize_mutex);
+
+  /* Reset state */
+  uv__tty_message_loop_thread_id = 0;
+  uv__tty_console_initialized = 0;
 }
 
 
@@ -2385,9 +2473,16 @@ static DWORD WINAPI uv__tty_console_resize_message_loop_thread(void* param) {
   uv__tty_console_resized = CreateEvent(NULL, TRUE, FALSE, NULL);
   if (uv__tty_console_resized == NULL)
     return 0;
-  if (QueueUserWorkItem(uv__tty_console_resize_watcher_thread,
-                        NULL,
-                        WT_EXECUTELONGFUNCTION) == 0)
+
+  /* Create watcher thread with CreateThread to get handle */
+  uv__tty_watcher_thread_handle =
+    CreateThread(NULL,
+                 0,
+                 uv__tty_console_resize_watcher_thread,
+                 NULL,
+                 0,
+                 NULL);
+  if (uv__tty_watcher_thread_handle == NULL)
     return 0;
 
   if (!pSetWinEventHook(EVENT_CONSOLE_LAYOUT,
@@ -2399,9 +2494,28 @@ static DWORD WINAPI uv__tty_console_resize_message_loop_thread(void* param) {
                         WINEVENT_OUTOFCONTEXT))
     return 0;
 
-  while (GetMessage(&msg, NULL, 0, 0)) {
-    TranslateMessage(&msg);
-    DispatchMessage(&msg);
+  /* Message loop with shutdown event check */
+  while (1) {
+    DWORD result = MsgWaitForMultipleObjects(1,
+                                             &uv__tty_console_shutdown_event,
+                                             FALSE,
+                                             INFINITE,
+                                             QS_ALLINPUT);
+
+    if (result == WAIT_OBJECT_0) {
+      /* Shutdown event signaled */
+      break;
+    }
+
+    if (result == WAIT_OBJECT_0 + 1) {
+      /* Messages available */
+      while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
+        if (msg.message == WM_QUIT)
+          return 0;
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+      }
+    }
   }
   return 0;
 }
@@ -2417,12 +2531,25 @@ static void CALLBACK uv__tty_console_resize_event(HWINEVENTHOOK hWinEventHook,
 }
 
 static DWORD WINAPI uv__tty_console_resize_watcher_thread(void* param) {
+  HANDLE events[2];
+  events[0] = uv__tty_console_resized;
+  events[1] = uv__tty_console_shutdown_event;
+
   for (;;) {
+    DWORD result;
     /* Make sure to not overwhelm the system with resize events */
     Sleep(33);
-    WaitForSingleObject(uv__tty_console_resized, INFINITE);
-    ResetEvent(uv__tty_console_resized);
-    uv__tty_console_signal_resize();
+
+    result = WaitForMultipleObjects(2, events, FALSE, INFINITE);
+
+    if (result == WAIT_OBJECT_0) {
+      /* Resize event */
+      ResetEvent(uv__tty_console_resized);
+      uv__tty_console_signal_resize();
+    } else {
+      /* Shutdown event, or the events are gone */
+      break;
+    }
   }
   return 0;
 }

@@ -1231,6 +1231,15 @@ int do_open(int ac, char const* const* av)
 }
 } // namespace
 
+// A system libuv before 1.38 has no uv_library_shutdown
+struct shutdow_lib_uv {
+  ~shutdow_lib_uv() {
+#if UV_VERSION_MAJOR > 1 || (UV_VERSION_MAJOR == 1 && UV_VERSION_MINOR >= 38)
+    uv_library_shutdown();
+#endif
+  }
+};
+
 // The arguments are UTF-8, as an executable that embeds cmake passes its own
 // arguments
 int cmake_main(int ac, char const* const* av)
@@ -1247,8 +1256,11 @@ try {
   cm::optional<cm::StdIo::Console> console = cm::StdIo::Console();
 
   cmSystemTools::InitializeLibUV();
+  shutdow_lib_uv shutdownLibUV;
   cmSystemTools::FindCMakeResources(av[0]);
   cmSystemTools::SetRunCommandHideConsole(true);
+
+
   if (ac > 1) {
     if (strcmp(av[1], "--build") == 0) {
       return do_build(ac, av);
