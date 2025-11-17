@@ -29,6 +29,7 @@ set(uv_sources
   src/strscpy.h
   src/strtok.c
   src/strtok.h
+  src/thread-common.c
   src/threadpool.c
   src/timer.c
   src/uv-common.c
@@ -98,7 +99,6 @@ else()
     )
   list(APPEND uv_sources
     src/unix/async.c
-    src/unix/atomic-ops.h
     src/unix/core.c
     src/unix/dl.c
     src/unix/fs.c
@@ -111,7 +111,6 @@ else()
     src/unix/poll.c
     src/unix/process.c
     src/unix/signal.c
-    src/unix/spinlock.h
     src/unix/stream.c
     src/unix/tcp.c
     src/unix/thread.c
@@ -205,11 +204,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     )
   list(APPEND uv_defines _GNU_SOURCE)
   list(APPEND uv_sources
-    src/unix/epoll.c
-    src/unix/linux-core.c
-    src/unix/linux-inotify.c
-    src/unix/linux-syscalls.c
-    src/unix/linux-syscalls.h
+    src/unix/linux.c
     src/unix/procfs-exepath.c
     src/unix/proctitle.c
     src/unix/sysinfo-loadavg.c
@@ -305,7 +300,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL "HP-UX")
     CMAKE_NO_MKDTEMP
     )
   list(APPEND uv_sources
-    src/unix/hpux.c
     src/unix/no-fsevents.c
     src/unix/posix-poll.c
     )
