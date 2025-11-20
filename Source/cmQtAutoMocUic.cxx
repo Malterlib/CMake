@@ -617,12 +617,32 @@ void cmQtAutoMocUicT::ParseCacheT::FileT::Clear()
   this->Uic.Depends.clear();
 }
 
+namespace {
+// Normalize Windows drive letter to uppercase for consistent cache keys
+std::string NormalizeDriveLetter(std::string const& path)
+{
+#ifdef _WIN32
+  std::string normalized = path;
+  if (normalized.size() >= 2 && normalized[1] == ':' &&
+      std::isalpha(static_cast<unsigned char>(normalized[0]))) {
+    normalized[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(normalized[0])));
+  }
+  return normalized;
+#else
+  return path;
+#endif
+}
+}
+
 cmQtAutoMocUicT::ParseCacheT::GetOrInsertT
 cmQtAutoMocUicT::ParseCacheT::GetOrInsert(std::string const& fileName)
 {
+  // Normalize drive letter for consistent cache keys on Windows
+  std::string normalizedFileName = NormalizeDriveLetter(fileName);
+
   // Find existing entry
   {
-    auto it = this->Map_.find(fileName);
+    auto it = this->Map_.find(normalizedFileName);
     if (it != this->Map_.end()) {
       return GetOrInsertT{ it->second, false };
     }
@@ -630,7 +650,7 @@ cmQtAutoMocUicT::ParseCacheT::GetOrInsert(std::string const& fileName)
 
   // Insert new entry
   return GetOrInsertT{
-    this->Map_.emplace(fileName, std::make_shared<FileT>()).first->second, true
+    this->Map_.emplace(normalizedFileName, std::make_shared<FileT>()).first->second, true
   };
 }
 
