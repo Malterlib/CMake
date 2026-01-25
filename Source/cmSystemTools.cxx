@@ -3115,7 +3115,7 @@ void cmSystemTools::FindCMakeResources(char const* argv0)
     return;
   }
 
-  cmSystemToolsCMakeCommand = CFile::fs_GetProgramPath().f_GetStr();
+  cmSystemToolsCMakeCommand = CFile::fs_GetOriginalProgramPath().f_GetStr();
   std::string exe_dir = CFile::fs_GetProgramDirectory().f_GetStr();
 
   try {
