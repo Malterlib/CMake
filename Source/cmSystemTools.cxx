@@ -3172,7 +3172,7 @@ void cmSystemTools::FindCMakeResources(char const* argv0)
     return CFile::fs_GetPath(_ProgramPath) / ("MToolCMake" + (Extension.f_IsEmpty() ? CStr() : "." + Extension));
   };
 
-  cmSystemToolsCMakeCommand = fCMakeProgramPath(CFile::fs_GetProgramPath()).f_GetStr();
+  cmSystemToolsCMakeCommand = fCMakeProgramPath(CFile::fs_GetOriginalProgramPath()).f_GetStr();
   std::string exe_dir = CFile::fs_GetProgramDirectory().f_GetStr();
 
   try {
