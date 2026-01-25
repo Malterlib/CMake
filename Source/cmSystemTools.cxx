@@ -3173,16 +3173,22 @@ void cmSystemTools::FindCMakeResources(char const* argv0)
     return CFile::fs_GetPath(_ProgramPath) / ("MToolCMake" + (Extension.f_IsEmpty() ? CStr() : "." + Extension));
   };
 
-  cmSystemToolsCMakeCommand = fCMakeProgramPath(CFile::fs_GetProgramPath()).f_GetStr();
+  cmSystemToolsCMakeCommand = fCMakeProgramPath(CFile::fs_GetOriginalProgramPath()).f_GetStr();
   std::string exe_dir = CFile::fs_GetProgramDirectory().f_GetStr();
 
   try {
     CUniversallyUniqueIdentifier UUIDNamespace(
       "{EF53758B-02E4-4DE4-88CC-43513C7F6E2E}");
 
+    // Named for the MToolCMake in the program directory, as the build system names it (Builtin.CMakeRoot). The program
+    // path itself can't be used: on Linux it resolves the link MToolCMake to MTool.
+    CStr CMakeProgramPath = CFile::fs_GetProgramDirectory() / "MToolCMake";
+#ifdef _WIN32
+    CMakeProgramPath += ".exe";
+#endif
     CUniversallyUniqueIdentifier UUID{
       EUniversallyUniqueIdentifierGenerate_StringHash
-      , UUIDNamespace, fCMakeProgramPath(CFile::fs_GetProgramPath()).f_LowerCase()};
+      , UUIDNamespace, CMakeProgramPath.f_LowerCase()};
 
     CStr CacheDirectory = CFile::fs_GetPath(CFile::fs_GetUserLocalProgramCacheDirectory()) / "MToolCMake";
     CStr CmakeRoot = fg_Format("{}/{}/CMakeRoot", CacheDirectory,
