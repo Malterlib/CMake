@@ -3142,7 +3142,7 @@ void cmSystemTools::FindCMakeResources(char const* argv0)
 
     do {
       if (SourceWriteTime != WriteTime) {
-        CClock Clock{true};
+        CStopwatch Stopwatch{true};
         CLockFile LockFile{CmakeRoot + "/Update.lock"};
         switch (LockFile.f_Lock(100.0))
         {
@@ -3167,7 +3167,7 @@ void cmSystemTools::FindCMakeResources(char const* argv0)
         DiskFS.f_SetWriteTime(CmakeRoot, SourceWriteTime);
         cmSystemTools::Message(fg_Format(
           "-- Update of CMakeRoot at '{}' from ExeFS took {fe1} s",
-          CmakeRoot, Clock.f_GetTime()).f_GetStr());
+          CmakeRoot, Stopwatch.f_GetTime()).f_GetStr());
       }
     } while (false);
 
