@@ -3446,7 +3446,7 @@ void cmExtraMalterlibGenerator::AppendTarget(std::string const &_ProjectName,
 
   std::set<std::string> addedDependencies;
   std::map<std::string, cmMalterlibRegistry *> linkedDependencies;
-  auto fAddDependencies = [&](cmGeneratorTarget const *_pTarget, bool _bOnlyObjects, mint _Depth) -> void
+  auto fAddDependencies = [&](cmGeneratorTarget const *_pTarget, bool _bOnlyObjects, umint _Depth) -> void
     {
       cmTargetDependSet const& targetDependencies =
         const_cast<cmGlobalGenerator*>(GlobalGenerator)->
