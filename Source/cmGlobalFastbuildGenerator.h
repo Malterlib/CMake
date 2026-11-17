@@ -144,6 +144,12 @@ struct FastbuildTargetBase
     : Type(TargetType)
   {
   }
+  // Virtual, as the derived nodes are owned through FastbuildTargetPtrT
+  virtual ~FastbuildTargetBase() = default;
+  FastbuildTargetBase(FastbuildTargetBase const&) = default;
+  FastbuildTargetBase(FastbuildTargetBase&&) = default;
+  FastbuildTargetBase& operator=(FastbuildTargetBase const&) = default;
+  FastbuildTargetBase& operator=(FastbuildTargetBase&&) = default;
 };
 using FastbuildTargetPtrT = std::unique_ptr<FastbuildTargetBase>;
 
